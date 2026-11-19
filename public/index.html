@@ -26,7 +26,8 @@
   --accent: #2DBE73; --accent-ink: #08130D; --card: #242424; --warn-bg: #3A2C10; --warn: #F2C97C; --err-bg: #3A1616; --err: #F4A3A3;
   --p1: #F08A55; --p2: #4CC398; --p3: #9A88F0; --p4: #5AA6E8; --p5: #E0B547; color-scheme: dark; }
 
-html, body { height: 100%; }
+[hidden] { display: none !important; } /* display rules below must not un-hide hidden elements */
+html, body { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--ink); font: 400 16px/1.5 var(--f-body); display: flex; }
 .main { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; }
 #side { flex: none; width: 260px; height: 100%; background: var(--bar); border-right: 1px solid var(--line); display: flex; flex-direction: column; box-sizing: border-box;
