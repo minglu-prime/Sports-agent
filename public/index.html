@@ -677,7 +677,7 @@ function courtSvg(d) {
 }
 function detailPrompt(input, phaseId, u) {
   const names = Object.keys(HALF_SPOTS).join("、");
-  return `你是U12篮球教练助手。为下面这个练习写详细说明，并描述一张场地示意图。${foreign(input) ? `schritte和fehler用${foreign(input)}写；地点名照抄下面的中文名（它们是程序用的代号，不要翻译）。` : "用中文，"}教练要能照着在场边摆位和讲解。
+  return `你是U12篮球教练助手。为下面这个练习写详细说明，并描述一张场地示意图。${foreign(input) ? `schritte和fehler用${foreign(input)}写；地点名照抄下面的中文名（它们是程序用的代号，不要翻译）。中文地点名只写在 ort 和 nach 里；schritte和fehler里说到位置时，用${foreign(input)}的说法。` : "用中文，"}教练要能照着在场边摆位和讲解。
 条件：${input ? `${input.spieler}人，${input.koerbe}个篮筐，器材：${input.material || "未说明"}` : "未说明"}。所属环节：${phaseMeta(phaseId).name}。
 练习：${JSON.stringify({ name: u.name, minuten: u.minuten, aufbau: u.aufbau, regeln: u.regeln, wettkampf: u.wettkampf })}
 

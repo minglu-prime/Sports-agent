@@ -19,3 +19,11 @@ const plan = { titel: "Fast break", materialhinweis: "Balls", phasen: [{ id: "au
 const t = planAsText(plan, { ...base, sprache: "en" });
 ok(t === 'Fast break (90 min)\n\n[Warm-up] 12 min\n· Fire and ice (12′) R. Scoring: W Cue: "Go!"\n\nEquipment: Balls', "English copy text: " + JSON.stringify(t));
 console.log("en ok");
+
+// Live finding (2026-11-20): an English step read "A1 has the ball at 弧顶". Spot ids belong in ort/nach only.
+for (const sprache of ["en", "de"]) {
+  const p = detailPrompt({ ...base, sprache }, "technik", { name: "x" });
+  ok(p.includes("中文地点名只写在 ort 和 nach 里"), sprache + ": steps must describe positions in the output language");
+}
+ok(!detailPrompt(base, "technik", { name: "x" }).includes("中文地点名只写在"), "Chinese prompt unchanged");
+console.log("en steps ok");
