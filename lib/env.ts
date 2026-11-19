@@ -25,7 +25,9 @@ export function pickEnv<K extends string>(
   for (const key of Object.keys(spec) as K[]) {
     const name = spec[key].find((n) => source[n]);
     if (!name) return { ok: false, missing: spec[key].join(" / ") };
-    env[key] = source[name] as string;
+    const value = source[name] as string;
+    // the Supabase dashboard also shows the REST endpoint (…/rest/v1/); clients need the bare project URL
+    env[key] = key === "url" ? value.trim().replace(//(rest|auth)/v1/?$/, "").replace(//+$/, "") : value.trim();
   }
   return { ok: true, env };
 }
