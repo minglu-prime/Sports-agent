@@ -5,6 +5,8 @@ import { euros, overCap } from "./cost.ts";
 export type SampleDeps = {
   model: string;
   effort: string;
+  /** Effort for light requests (court pictures): they need no deep thinking, and thinking made each take ~25 s. */
+  lightEffort?: string;
   capEuro: number;
   userId: (token: string) => Promise<string | null>;
   spentToday: (owner: string) => Promise<number>;
@@ -28,8 +30,8 @@ export async function handleSample(req: Request, d: SampleDeps): Promise<Respons
   }
   if (!owner) return json(401, "not_granted", "请先登录");
 
-  let prompt: unknown;
-  try { prompt = ((await req.json()) as { prompt?: unknown }).prompt; }
+  let prompt: unknown, light = false;
+  try { const body = (await req.json()) as { prompt?: unknown; light?: unknown }; prompt = body.prompt; light = body.light === true; }
   catch { return json(400, "upstream_error", "请求格式不对"); }
   if (typeof prompt !== "string" || !prompt.trim()) return json(400, "upstream_error", "请求里没有内容");
   if (prompt.length > MAX_PROMPT) return json(400, "prompt_too_large", "内容太长");
@@ -52,7 +54,7 @@ export async function handleSample(req: Request, d: SampleDeps): Promise<Respons
         }
         if (overCap(spent, d.capEuro)) { send({ type: "error", code: "rate_limited", message: "今天的用量到上限了，明天再试" }); return; }
 
-        const gen = askJson(d.deepseek, { model: d.model, effort: d.effort, prompt: prompt as string, signal: ctl.signal });
+        const gen = askJson(d.deepseek, { model: d.model, effort: light ? d.lightEffort ?? d.effort : d.effort, prompt: prompt as string, signal: ctl.signal });
         let r = await gen.next();
         while (!r.done) { send(r.value); r = await gen.next(); }
         const used = r.value;

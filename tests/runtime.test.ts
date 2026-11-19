@@ -152,3 +152,19 @@ test("re-login signs out this device only, and a lost session sends the coach ba
   assert.doesNotMatch(src, /signOut\(\)/);
   assert.match(src, /onAuthStateChange\(\(event\) => \{ if \(event === "SIGNED_OUT"\) location\.reload\(\); \}\)/);
 });
+
+test("picture prompts are sent as light requests, plan prompts are not", async () => {
+  const sent: Record<string, unknown>[] = [];
+  const fetchFn = async (_u: string, init: RequestInit) => { sent.push(JSON.parse(init.body as string)); return ndjson([{ type: "result", data: {} }]); };
+  const sample = rt.makeSample(fetchFn, async () => "t", () => {});
+  await sample.json("…示意图规则：\n- 只画一组…");
+  await sample.json("教练现在说：练快攻");
+  assert.deepEqual(sent.map((b) => b.light), [true, undefined]);
+});
+
+test("sign-out button style is installed at start-up, not only when the sign-in card shows", () => {
+  const src = readFileSync(new URL("../public/runtime.js", import.meta.url), "utf8");
+  const boot = src.slice(src.indexOf("const boot = () =>"));
+  assert.match(boot, /document\.head\.append\(h\("style", \{ textContent: css \}\)\)/);
+  assert.equal((src.match(/textContent: css/g) || []).length, 1);
+});
