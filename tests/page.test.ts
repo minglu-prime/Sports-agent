@@ -28,3 +28,10 @@ test("no user-facing text names Claude (the hosted app runs on DeepSeek)", () =>
   const strings = html.match(/"[^"\n]*Claude[^"\n]*"/g) || [];
   assert.deepEqual(strings, []);
 });
+
+// Go-live finding: this Supabase project sends 8-digit codes; the input only took 6. Supabase allows 6 to 10.
+test("sign-in code input takes 6 to 10 digits", () => {
+  const rt = readFileSync(new URL("../public/runtime.js", import.meta.url), "utf8");
+  assert.match(rt, /pattern: "\[0-9\]\{6,10\}", maxLength: 10/);
+  assert.doesNotMatch(rt, /6 位/);
+});
