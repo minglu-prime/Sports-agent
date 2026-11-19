@@ -162,6 +162,16 @@
   const h = (tag, attrs, ...kids) => { const n = document.createElement(tag); Object.assign(n, attrs || {}); n.append(...kids.filter(Boolean)); return n; };
 
 
+  /** Switches the interface language (see i18n.js); absent when that layer is not loaded. */
+  function langSwitch() {
+    const i18n = root.U12I18n;
+    if (!i18n || !i18n.setLang) return null;
+    const other = i18n.lang === "en" ? "zh" : "en";
+    const btn = h("button", { type: "button", className: "link", lang: other, textContent: other === "en" ? "English" : "中文" });
+    btn.addEventListener("click", () => i18n.setLang(other));
+    return btn;
+  }
+
   function signIn(client) {
     return new Promise((resolve) => {
       const msg = h("p", { className: "auth-msg", role: "status" });
@@ -184,7 +194,7 @@
           showCode();
         });
         card.replaceChildren(h("h1", { textContent: "U12 备课助手" }), h("p", { textContent: "输入你被邀请的邮箱，我们会发一个数字验证码。" }), form, msg,
-          h("p", { className: "auth-note", textContent: "计划由 DeepSeek 生成（服务器在中国），请不要输入孩子的全名。" }));
+          h("p", { className: "auth-note", textContent: "计划由 DeepSeek 生成（服务器在中国），请不要输入孩子的全名。" }), langSwitch());
         input.focus();
       };
       const showCode = () => {

@@ -31,6 +31,8 @@ The coach's old claude.ai Artifact history was imported: 2 threads, 10 messages.
 
 ## Open items
 
+- The English interface went live on 2026-11-20 and was checked only with test data. One real English session should be generated and read through.
+
 - `DAILY_EURO_CAP` and `DEEPSEEK_MODEL` aren't validated. A non-number cap turns the cap off. An unknown model makes every call fail with a usage error.
 - Start-up failures (config or the Supabase library not loading) show as a chat notice, not in the sign-in card.
 - The index `docs_owner_coll` duplicates the primary key. It is harmless; a new migration could drop it.

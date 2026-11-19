@@ -8,4 +8,5 @@ const head = '<!doctype html><meta charset=utf8><meta name=viewport content="wid
 const page = src.replace(/<script src="runtime\.js"><\/script>\r?\n/, "").replace(/^<!doctype html>\r?\n/i, "");
 if (page === src) throw new Error("runtime.js script tag not found in public/index.html");
 fs.writeFileSync(path.join(__dirname, "page.html"), head + page);
+fs.copyFileSync(path.join(__dirname, "..", "..", "public", "i18n.js"), path.join(__dirname, "i18n.js"));
 console.log("built page.html");
