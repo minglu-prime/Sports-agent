@@ -56,6 +56,7 @@ function uiCode() {
   const cut = (a: string, b: string) => { const i = s.indexOf(a), j = s.indexOf(b, i); assert.ok(i >= 0 && j > i, `markers ${a} … ${b}`); s = s.slice(0, i) + s.slice(j); };
   cut("const PHASES = [", "const RECENT_N");
   cut("/* ---------- prompts ---------- */\nfunction libText", "/* ---------- settings");
+  cut("const SPOT_NAMES", "const needsPicture");
   cut("const HALF_SPOTS", "const finite01");
   cut("function courtSpots", "/**\n * Turns Claude");
   cut("function detailPrompt", "const loadingDrills");
