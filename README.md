@@ -24,8 +24,9 @@ Needs these environment variables. On Vercel, set them under Project → Setting
 | `DEEPSEEK_API_KEY` | DeepSeek API key |
 | `DEEPSEEK_MODEL` | optional, default `deepseek-flash` |
 | `DEEPSEEK_REASONING_EFFORT` | optional: `none`, `low` or `high` (default `high`) |
-| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Supabase project URL and anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | used only by the server, to record usage |
+| `SUPABASE_URL` (or `NEXT_PUBLIC_SUPABASE_URL`) | Supabase project URL |
+| `SUPABASE_PUBLISHABLE_KEY` (or `SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`) | Supabase public key: the `sb_publishable_…` key or the legacy anon key |
+| `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`) | Supabase secret key: `sb_secret_…` or the legacy service_role key. Used only by the server, to record usage |
 | `DAILY_EURO_CAP` | optional, per person and day, default `3` |
 
 The database tables are created by `supabase/migrations/001_docs_usage.sql`. Run it once in the Supabase SQL editor.

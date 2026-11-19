@@ -2,16 +2,18 @@ import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { waitUntil } from "@vercel/functions";
 import { handleSample, spentEuro } from "../lib/sample-handler.ts";
-import { readEnv } from "../lib/env.ts";
+import { readEnv, pickEnv, SUPABASE_ENV } from "../lib/env.ts";
 
 /** POST /api/sample: wires the real Supabase and DeepSeek clients into lib/sample-handler.ts. */
 export async function POST(req: Request): Promise<Response> {
-  const r = readEnv(["DEEPSEEK_API_KEY", "SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"]);
-  if (!r.ok) return Response.json({ code: "upstream_error", message: `服务器没配置 ${r.missing}` }, { status: 500 });
-  const { env } = r;
+  const ds = readEnv(["DEEPSEEK_API_KEY"]);
+  const sb = pickEnv(SUPABASE_ENV);
+  const missing = !ds.ok ? ds.missing : !sb.ok ? sb.missing : null;
+  if (missing || !ds.ok || !sb.ok) return Response.json({ code: "upstream_error", message: `服务器没配置 ${missing}` }, { status: 500 });
+  const env = { ...ds.env, ...sb.env };
   const model = process.env.DEEPSEEK_MODEL || "deepseek-flash";
-  const anon = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, { auth: { persistSession: false } });
-  const svc = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  const anon = createClient(env.url, env.publicKey, { auth: { persistSession: false } });
+  const svc = createClient(env.url, env.secretKey, { auth: { persistSession: false } });
   const today = () => new Date().toISOString().slice(0, 10); // UTC day, same as add_usage()
   return handleSample(req, {
     model,

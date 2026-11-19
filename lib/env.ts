@@ -8,3 +8,24 @@ export function readEnv<K extends string>(names: K[]): { ok: true; env: Record<K
   }
   return { ok: true, env };
 }
+
+/** Supabase settings under every name in use: classic keys, the newer publishable/secret keys, and the
+ *  NEXT_PUBLIC_* names Supabase's Vercel integration creates. The first name set wins. */
+export const SUPABASE_ENV = {
+  url: ["SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"],
+  publicKey: ["SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+  secretKey: ["SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY"],
+} as const;
+
+export function pickEnv<K extends string>(
+  spec: Record<K, readonly string[]>,
+  source: Record<string, string | undefined> = process.env,
+): { ok: true; env: Record<K, string> } | { ok: false; missing: string } {
+  const env = {} as Record<K, string>;
+  for (const key of Object.keys(spec) as K[]) {
+    const name = spec[key].find((n) => source[n]);
+    if (!name) return { ok: false, missing: spec[key].join(" / ") };
+    env[key] = source[name] as string;
+  }
+  return { ok: true, env };
+}
