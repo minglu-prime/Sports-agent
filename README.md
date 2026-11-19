@@ -1,5 +1,7 @@
 # U12 备课助手 · U12 Basketball Session Planner
 
+**English** · [中文](README.zh-CN.md)
+
 **Live:** https://sports-agent-seven.vercel.app (sign-in by invitation)
 
 I coach a U12 basketball team in Germany. Planning a 90-minute session that is fun, useful and never the same as last week took me far longer than it should. So I built a planner that does it in about a minute: I say what I want to train, and it returns a full session with a court diagram for every drill.
