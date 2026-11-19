@@ -31,7 +31,8 @@ The coach's old claude.ai Artifact history was imported: 2 threads, 10 messages.
 
 ## Open items
 
-- The English interface went live on 2026-11-20 and was checked only with test data. One real English session should be generated and read through.
+- The English interface went live on 2026-11-20. One real English session was generated on production: valid plan, 9 pictures, no Chinese left in the interface. German drill content has not been tried on production.
+- The coach has not used the English interface themselves yet.
 
 - `DAILY_EURO_CAP` and `DEEPSEEK_MODEL` aren't validated. A non-number cap turns the cap off. An unknown model makes every call fail with a usage error.
 - Start-up failures (config or the Supabase library not loading) show as a chat notice, not in the sign-in card.
@@ -43,6 +44,10 @@ The coach's old claude.ai Artifact history was imported: 2 threads, 10 messages.
 - Ideas not started: filtering library drills by players, baskets and equipment; inviting coaches from inside the app.
 
 ## Traps already hit
+
+- **The interface is translated in the DOM** (`public/i18n.js`). A new Chinese interface text needs an English entry there; `tests/i18n.test.ts` fails until it has one. Text built from pieces with `+` is not seen whole, so write it as one template string.
+- **Court spots are Chinese ids.** For English and German output, `localizeSpots` takes them out of the step text. A new spot needs an English and a German name in `SPOT_NAMES`.
+- **The model writes "runs to the spot they already stand on" for a player who stays.** The layout skips that without a warning.
 
 - **The page relied on things the Artifact host added.** A doctype, charset, viewport and a `[hidden]` rule were all missing on Vercel. The test page (`tests/harness`) now adds nothing extra, so it shows what production shows.
 - **Values from the database and the model arrive frozen.** The page copies them with `editable()` before changing them. Test doubles must freeze their results too.
