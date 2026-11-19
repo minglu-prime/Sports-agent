@@ -30,9 +30,15 @@ Needs these environment variables. On Vercel, set them under Project → Setting
 
 The database tables are created by `supabase/migrations/001_docs_usage.sql`. Run it once in the Supabase SQL editor.
 
-## Invite someone
+## Add a coach
 
-Supabase → Authentication → Users → Invite user. They then open the site, enter their email, and type the code they receive.
+1. In Supabase, go to Authentication → Users → **Add user → Create new user**.
+2. Enter their email and tick **Auto Confirm User**. Any password works; it is never used.
+3. They open the site, enter that email, and type the 6-digit code they receive.
+
+Don't use "Invite user". Sign-ups are off, and an invited user stays unconfirmed, so Supabase won't send them a code.
+
+The "Magic Link" email template must show `{{ .Token }}`, so that the email contains the code.
 
 ## Checks
 

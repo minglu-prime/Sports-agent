@@ -137,3 +137,18 @@ test("sample: stream ending without a result, a 500, or an abort all reject with
   const aborted = rt.makeSample(async () => { const e = new Error("aborted"); e.name = "AbortError"; throw e; }, async () => "t", () => {});
   await assert.rejects(aborted.json("x", { signal: AbortSignal.abort() }), (e: { code: string }) => e.code === "cancelled");
 });
+
+// Review finding C1: with sign-ups off, an unconfirmed (invited) user gets "Signups not allowed"; say what to do.
+test("sign-up-disabled error tells the coach to add the user in Supabase", () => {
+  const m = (rt as unknown as { authMessage(e: unknown): string }).authMessage({ message: "Signups not allowed for otp" });
+  assert.match(m, /Create new user/);
+  assert.match(m, /Auto Confirm/);
+});
+
+// Review findings I4 and I5, wiring that only runs in a browser: checked in the source.
+test("re-login signs out this device only, and a lost session sends the coach back to sign-in", () => {
+  const src = readFileSync(new URL("../public/runtime.js", import.meta.url), "utf8");
+  assert.equal((src.match(/signOut\(\{ scope: "local" \}\)/g) || []).length, 2, "both sign-out calls are local");
+  assert.doesNotMatch(src, /signOut\(\)/);
+  assert.match(src, /onAuthStateChange\(\(event\) => \{ if \(event === "SIGNED_OUT"\) location\.reload\(\); \}\)/);
+});

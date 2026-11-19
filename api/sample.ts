@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
+import { waitUntil } from "@vercel/functions";
 import { handleSample, spentEuro } from "../lib/sample-handler.ts";
 import { readEnv } from "../lib/env.ts";
 
@@ -18,7 +19,11 @@ export async function POST(req: Request): Promise<Response> {
     capEuro: Number(process.env.DAILY_EURO_CAP || 3),
     userId: async (token) => {
       const { data, error } = await anon.auth.getUser(token);
-      if (error) console.warn("token rejected", error.message);
+      if (error) {
+        // a rejected token (4xx) means signed out; anything else is Supabase being unreachable → handler answers 503
+        if (typeof error.status === "number" && error.status >= 400 && error.status < 500) { console.warn("token rejected", error.message); return null; }
+        throw error;
+      }
       return data.user?.id ?? null;
     },
     spentToday: async (owner) => {
@@ -30,6 +35,8 @@ export async function POST(req: Request): Promise<Response> {
       const { error } = await svc.rpc("add_usage", { p_owner: owner, p_in: inTok, p_out: outTok });
       if (error) throw error;
     },
-    deepseek: new OpenAI({ baseURL: "https://api.deepseek.com", apiKey: env.DEEPSEEK_API_KEY }),
+    // finish (and record usage) before Vercel's 300 s limit kills the function
+    deepseek: new OpenAI({ baseURL: "https://api.deepseek.com", apiKey: env.DEEPSEEK_API_KEY, timeout: 280_000, maxRetries: 0 }),
+    keepAlive: waitUntil,
   });
 }

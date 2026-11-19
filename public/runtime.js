@@ -134,7 +134,16 @@
     };
   }
 
-  root.U12Runtime = { collPath, makeDb, makeSample };
+  const authMessage = (e) => {
+    const m = String((e && e.message) || e);
+    // with sign-ups off, only confirmed users get a code; an invited-but-unconfirmed user also lands here
+    if (/signups? not allowed|not found|user not/i.test(m)) return "这个邮箱还没有账号。管理员要在 Supabase → Authentication → Users → Add user → Create new user 添加它，并勾选 Auto Confirm User。";
+    if (/failed to fetch|network|load failed/i.test(m)) return "网络连不上，请检查网络后再试。";
+    if (/rate limit|too many|seconds/i.test(m)) return "发送太频繁，请过一分钟再试。";
+    if (/expired|invalid|token/i.test(m)) return "验证码不对或已过期，请重新输入或重新发送。";
+    return `出错了：${m}`;
+  };
+  root.U12Runtime = { collPath, makeDb, makeSample, authMessage };
   if (!root.document || root.claude) return; // tests, or the local harness that brings its own window.claude
 
   /* ---------- sign-in overlay: email → 6-digit code (codes work inside the iPhone home-screen app, links don't) ---------- */
@@ -150,14 +159,7 @@
 .auth-note{font-size:12px;color:var(--muted,#7F7F7F)}
 .auth-out{font:400 14px var(--f-body,system-ui);color:var(--muted,#7F7F7F);background:none;border:1px solid var(--line,#DADADA);border-radius:6px;padding:8px 12px;cursor:pointer;justify-self:start}`;
   const h = (tag, attrs, ...kids) => { const n = document.createElement(tag); Object.assign(n, attrs || {}); n.append(...kids.filter(Boolean)); return n; };
-  const authMessage = (e) => {
-    const m = String((e && e.message) || e);
-    if (/signups? not allowed|not found|user not/i.test(m)) return "这个邮箱还没被邀请，请联系管理员。";
-    if (/failed to fetch|network|load failed/i.test(m)) return "网络连不上，请检查网络后再试。";
-    if (/rate limit|too many|seconds/i.test(m)) return "发送太频繁，请过一分钟再试。";
-    if (/expired|invalid|token/i.test(m)) return "验证码不对或已过期，请重新输入或重新发送。";
-    return `出错了：${m}`;
-  };
+
 
   function signIn(client) {
     return new Promise((resolve) => {
@@ -215,7 +217,7 @@
     const btn = h("button", { type: "button", className: "auth-out", textContent: `退出登录（${email}）` });
     btn.addEventListener("click", async () => {
       btn.disabled = true;
-      const { error } = await client.auth.signOut();
+      const { error } = await client.auth.signOut({ scope: "local" }); // this device only
       if (error) { console.error("sign-out failed", error); btn.disabled = false; btn.textContent = `退出失败：${error.message}`; return; }
       location.reload();
     });
@@ -235,6 +237,8 @@
     if (error) console.warn("stored session unreadable", error);
     const session = (data && data.session) || (await signIn(client));
     addSignOut(client, session.user.email || "");
+    // a session lost later (refresh token rejected) would make reads come back empty; start over at sign-in instead
+    client.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") location.reload(); });
     return { client, session };
   })());
 
@@ -245,7 +249,7 @@
       if (name === "user") return { id: async () => session.user.id };
       if (name === "sample") {
         const token = async () => { const { data } = await client.auth.getSession(); return (data.session && data.session.access_token) || ""; };
-        const relogin = () => { client.auth.signOut().catch((e) => console.error("sign-out failed", e)).finally(() => location.reload()); };
+        const relogin = () => { client.auth.signOut({ scope: "local" }).catch((e) => console.error("sign-out failed", e)).finally(() => location.reload()); };
         return makeSample(root.fetch.bind(root), token, relogin);
       }
       return null;

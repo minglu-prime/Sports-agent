@@ -10,6 +10,8 @@ export type SampleDeps = {
   spentToday: (owner: string) => Promise<number>;
   addUsage: (owner: string, model: string, inputTokens: number, outputTokens: number) => Promise<void>;
   deepseek: OpenAI;
+  /** Keeps the function alive until the usage write finishes, even after the client left (Vercel waitUntil). */
+  keepAlive?: (p: Promise<unknown>) => void;
 };
 
 const MAX_PROMPT = 200_000; // chars; the page's longest prompts are ~15 000
@@ -18,7 +20,12 @@ const json = (status: number, code: string, message: string) => Response.json({ 
 /** POST /api/sample: login → cap → DeepSeek, answered as NDJSON page events (see lib/deepseek.ts). */
 export async function handleSample(req: Request, d: SampleDeps): Promise<Response> {
   const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-  const owner = token ? await d.userId(token) : null;
+  let owner: string | null;
+  try { owner = token ? await d.userId(token) : null; }
+  catch (e) {
+    console.error("login check failed", e); // a Supabase hiccup must not sign the coach out (401 → re-login)
+    return json(503, "upstream_error", "登录服务暂时连不上，稍后再试");
+  }
   if (!owner) return json(401, "not_granted", "请先登录");
 
   let prompt: unknown;
@@ -30,9 +37,11 @@ export async function handleSample(req: Request, d: SampleDeps): Promise<Respons
   const ctl = new AbortController();
   req.signal.addEventListener("abort", () => ctl.abort(), { once: true });
   const enc = new TextEncoder();
+  let gone = false;
   const stream = new ReadableStream<Uint8Array>({
     async start(out) {
-      const send = (e: PageEvent) => out.enqueue(enc.encode(JSON.stringify(e) + "\n"));
+      // once the client is gone, events are dropped quietly so the usage below still gets recorded
+      const send = (e: PageEvent) => { if (!gone) out.enqueue(enc.encode(JSON.stringify(e) + "\n")); };
       try {
         let spent: number;
         try { spent = await d.spentToday(owner); }
@@ -46,15 +55,18 @@ export async function handleSample(req: Request, d: SampleDeps): Promise<Respons
         const gen = askJson(d.deepseek, { model: d.model, effort: d.effort, prompt: prompt as string, signal: ctl.signal });
         let r = await gen.next();
         while (!r.done) { send(r.value); r = await gen.next(); }
-        try { await d.addUsage(owner, d.model, r.value.inputTokens, r.value.outputTokens); }
-        catch (e) { console.error("usage not recorded", { owner, model: d.model, ...r.value }, e); }
+        const used = r.value;
+        const write = d.addUsage(owner, d.model, used.inputTokens, used.outputTokens)
+          .catch((e) => console.error("usage not recorded", { owner, model: d.model, ...used }, e));
+        d.keepAlive?.(write);
+        await write;
       } catch (e) {
-        console.error("sample stream failed", e); // the client may be gone already; nothing more to tell it
+        console.error("sample stream failed", e);
       } finally {
-        try { out.close(); } catch (e) { console.warn("stream already closed", e); }
+        if (!gone) { try { out.close(); } catch (e) { console.warn("stream already closed", e); } }
       }
     },
-    cancel() { ctl.abort(); },
+    cancel() { gone = true; ctl.abort(); },
   });
   return new Response(stream, { headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store" } });
 }

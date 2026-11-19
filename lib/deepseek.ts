@@ -25,13 +25,15 @@ export function mapError(e: unknown): { code: string; message: string } {
 }
 
 /** Asks DeepSeek for a JSON answer, streaming. Yields progress (reasoning and answer text), then exactly one
- *  result or error; returns the token usage (zeros when the stream ended before DeepSeek reported it). */
+ *  result or error; returns the token usage. DeepSeek reports usage only in its last chunk, so a stream that ends
+ *  early is estimated at 1 token per character (conservative for Chinese and English) to keep the daily cap honest. */
 export async function* askJson(
   client: OpenAI,
   opts: { model: string; effort: string; prompt: string; signal: AbortSignal },
 ): AsyncGenerator<PageEvent, Usage> {
   const usage: Usage = { inputTokens: 0, outputTokens: 0 };
-  let answer = "";
+  let answer = "", streamed = 0, reported = false;
+  const final = (): Usage => (reported ? usage : { inputTokens: opts.prompt.length, outputTokens: streamed });
   try {
     const body = {
       model: opts.model,
@@ -44,18 +46,18 @@ export async function* askJson(
     };
     const stream = await client.chat.completions.create(body as OpenAI.ChatCompletionCreateParamsStreaming, { signal: opts.signal });
     for await (const c of stream) {
-      if (c.usage) { usage.inputTokens = c.usage.prompt_tokens; usage.outputTokens = c.usage.completion_tokens; }
+      if (c.usage) { usage.inputTokens = c.usage.prompt_tokens; usage.outputTokens = c.usage.completion_tokens; reported = true; }
       const d = c.choices[0]?.delta as { content?: string | null; reasoning_content?: string | null } | undefined;
-      if (d?.reasoning_content) yield { type: "progress", delta: d.reasoning_content };
-      if (d?.content) { answer += d.content; yield { type: "progress", delta: d.content }; }
+      if (d?.reasoning_content) { streamed += d.reasoning_content.length; yield { type: "progress", delta: d.reasoning_content }; }
+      if (d?.content) { answer += d.content; streamed += d.content.length; yield { type: "progress", delta: d.content }; }
     }
   } catch (e) {
     yield { type: "error", ...mapError(e) };
-    return usage;
+    return final();
   }
   // JSON mode may answer with only spaces (non-JSON output is blanked); that is a failed answer, not an empty plan
-  if (!answer.trim()) { yield { type: "error", code: "invalid_json", message: "DeepSeek 返回了空白回答" }; return usage; }
+  if (!answer.trim()) { yield { type: "error", code: "invalid_json", message: "DeepSeek 返回了空白回答" }; return final(); }
   try { yield { type: "result", data: JSON.parse(answer) }; }
   catch { yield { type: "error", code: "invalid_json", message: "DeepSeek 的回答不是有效的 JSON" }; }
-  return usage;
+  return final();
 }

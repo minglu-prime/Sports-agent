@@ -109,3 +109,15 @@ test("mapError covers DeepSeek's status codes", () => {
   assert.equal(mapError(new APIUserAbortError()).code, "cancelled");
   assert.equal(mapError(new Error("socket hang up")).code, "upstream_error");
 });
+
+// Review finding I2: DeepSeek reports usage only in the last chunk; a dropped stream must still count against the cap.
+test("usage is estimated from characters when the stream ends before DeepSeek reports it", async () => {
+  const ctl = new AbortController();
+  const { client } = fakeClient([chunk(null, "想一想再想"), chunk('{"a":'), chunk("1}")]);
+  const gen = askJson(client, { ...opts(ctl.signal), prompt: "x".repeat(300) });
+  await gen.next(); await gen.next();
+  ctl.abort();
+  const { usage } = await drain(gen);
+  // conservative: 1 token per character (Chinese runs ~0.6–1 token per char on DeepSeek's tokenizer)
+  assert.deepEqual(usage, { inputTokens: 300, outputTokens: "想一想再想".length + '{"a":'.length });
+});

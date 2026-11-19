@@ -23,3 +23,8 @@ test("sign-in card counts its padding inside its width (no overflow on a 375 px 
   const rt = readFileSync(new URL("../public/runtime.js", import.meta.url), "utf8");
   assert.match(rt, /\.auth-card\{[^}]*box-sizing:border-box/);
 });
+
+test("no user-facing text names Claude (the hosted app runs on DeepSeek)", () => {
+  const strings = html.match(/"[^"\n]*Claude[^"\n]*"/g) || [];
+  assert.deepEqual(strings, []);
+});

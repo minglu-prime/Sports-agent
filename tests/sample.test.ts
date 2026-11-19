@@ -90,3 +90,27 @@ test("client abort aborts the DeepSeek request", async () => {
   await body.catch(() => "");
   assert.equal(seen.signal?.aborted, true);
 });
+
+// Review finding I3a: when the coach leaves, the stream is cancelled; usage must still be recorded.
+test("client disconnect mid-answer still records usage, through keepAlive", async () => {
+  const kept: Promise<unknown>[] = [];
+  const { d, seen } = deps({ waitForAbort: true, keepAlive: (p) => { kept.push(p); } });
+  const r = await handleSample(req({ prompt: "x".repeat(40) }), d);
+  const reader = r.body!.getReader();
+  setTimeout(() => reader.cancel(), 20);
+  await reader.read().catch(() => undefined);
+  await new Promise((res) => setTimeout(res, 50));
+  await Promise.all(kept);
+  assert.equal(kept.length, 1);
+  assert.equal(seen.usage.length, 1);
+  assert.equal(seen.usage[0][2], 40, "prompt counted even though DeepSeek never reported usage");
+});
+
+// Review finding I4: a Supabase hiccup is not a logged-out coach.
+test("login service failure → 503 upstream_error, not 401", async () => {
+  const { d, seen } = deps({ userId: async () => { throw new Error("fetch failed"); } });
+  const r = await handleSample(req({ prompt: "x" }), d);
+  assert.equal(r.status, 503);
+  assert.deepEqual(await r.json(), { code: "upstream_error", message: "登录服务暂时连不上，稍后再试" });
+  assert.equal(seen.deepseekCalls, 0);
+});
