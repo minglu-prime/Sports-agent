@@ -4,3 +4,4 @@ node_modules/
 tests/harness/page.html
 exports/
 .superpowers/
+tests/harness/i18n.js

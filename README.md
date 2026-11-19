@@ -15,7 +15,8 @@ I coach a U12 basketball team in Germany. Planning a 90-minute session that is f
 - **Draws each drill.** The model names court spots and actions; the page computes the coordinates on a FIBA court, so players don't land in the wrong place.
 - **Learns what the kids like.** After a session I rate drills 👍 or 👎. Liked drills are preferred next time, and disliked ones are blocked by the validator.
 - **Runs the practice.** Practice mode shows one drill per screen with a countdown, the coaching cue and the diagram.
-- **Works on phone and tablet,** installs to the home screen, and can write the drills in German for assistant coaches.
+- **Works on phone and tablet,** and installs to the home screen.
+- **Chinese and English interface.** The drills can be written in Chinese, English or German, so assistant coaches can read them.
 
 ## How I built it
 

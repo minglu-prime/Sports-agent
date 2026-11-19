@@ -7,6 +7,7 @@ The rules in `D:\claude\CLAUDE.md` belong to another project (Jump Attack). Only
 ## Layers
 
 - `public/index.html`: the whole page (UI, prompts, validator, court drawing). Plain JS, no build step.
+- `public/i18n.js`: the English interface. The page text is Chinese; this layer translates it in the DOM. A new Chinese text in the page needs an entry here, and `tests/i18n.test.ts` fails until it has one.
 - `public/runtime.js`: gives the page `window.claude.use("sample" | "db" | "user")` on top of Supabase and `/api/sample`.
 - `api/`, `lib/`: the Vercel Functions. Logic sits in `lib/` with injected dependencies; `api/` only wires real clients.
 - `supabase/migrations/`: SQL. Append new files; never edit an applied one.

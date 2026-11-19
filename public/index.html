@@ -231,25 +231,31 @@ label input, label select { font: 400 16px var(--f-body); color: var(--ink); bac
       <label for="f-spiel">比赛至少（分钟）<input id="f-spiel" type="number" min="20" max="60" value="20"></label>
     </div>
     <label for="f-material">器材<input id="f-material" type="text" value="12个球，20个标志桶，2套对抗背心"></label>
-    <label for="f-sprache">练习内容的语言<select id="f-sprache"><option value="zh">中文</option><option value="de">Deutsch（给德国助教看）</option></select></label>
+    <label for="f-sprache">练习内容的语言<select id="f-sprache"><option value="zh">中文</option><option value="en">English</option><option value="de">Deutsch（给德国助教看）</option></select></label>
+    <label for="f-lang">界面语言<select id="f-lang"><option value="zh">中文</option><option value="en">English</option></select></label>
     <label class="check" for="f-kalt"><input id="f-kalt" type="checkbox" checked>天冷：先把核心体温提上来</label>
     <button type="button" class="done" id="close-sheet">完成</button>
   </div>
 </div>
 
+<script src="i18n.js"></script>
 <script src="runtime.js"></script>
 <script>
 "use strict";
 const PHASES = [
-  { id: "aufwaermen",   name: "热身",       de: "Aufwärmen",                 color: "var(--p1)", hint: "跑动游戏，先把核心体温提上来" },
-  { id: "mobilisation", name: "灵活与弹跳", de: "Mobilisation & Sprungkraft", color: "var(--p2)", hint: "动态拉伸做成游戏，单脚跳等弹性练习" },
-  { id: "aktivierung",  name: "神经激活",   de: "Neuro-Aktivierung",         color: "var(--p3)", hint: "反应游戏，如头-胸-球、两人抢球，每周换花样" },
-  { id: "technik",      name: "技术",       de: "Technik",                   color: "var(--p4)", hint: "本周重点做成对抗或比赛形式" },
-  { id: "spiel",        name: "比赛",       de: "Abschlussspiel",            color: "var(--p5)", hint: "真比赛，加一条和重点相关的规则" },
+  { id: "aufwaermen",   name: "热身",       de: "Aufwärmen",                 en: "Warm-up",            color: "var(--p1)", hint: "跑动游戏，先把核心体温提上来" },
+  { id: "mobilisation", name: "灵活与弹跳", de: "Mobilisation & Sprungkraft", en: "Mobility & jumping", color: "var(--p2)", hint: "动态拉伸做成游戏，单脚跳等弹性练习" },
+  { id: "aktivierung",  name: "神经激活",   de: "Neuro-Aktivierung",         en: "Neural activation",  color: "var(--p3)", hint: "反应游戏，如头-胸-球、两人抢球，每周换花样" },
+  { id: "technik",      name: "技术",       de: "Technik",                   en: "Technique",          color: "var(--p4)", hint: "本周重点做成对抗或比赛形式" },
+  { id: "spiel",        name: "比赛",       de: "Abschlussspiel",            en: "Game",               color: "var(--p5)", hint: "真比赛，加一条和重点相关的规则" },
 ];
 const RECENT_N = 4;
 /** Output language of the drill content. The page itself stays Chinese. Old messages have no setting: Chinese. */
 const isDe = (input) => !!input && input.sprache === "de";
+/** Name of the language the model must write in, as used inside the Chinese prompts; "" means Chinese. */
+const foreign = (input) => (isDe(input) ? "德语" : input && input.sprache === "en" ? "英语" : "");
+/** Interface text in the coach's language (see i18n.js); the same text when the layer is not loaded. */
+const tr = (s) => (typeof window !== "undefined" && window.U12I18n ? window.U12I18n.t(s) : s);
 const $ = (id) => document.getElementById(id);
 /** The artifact runtime hands out frozen values (database rows, Claude's parsed JSON); the page edits plans in place, so copy them on the way in. */
 const editable = (v) => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
@@ -401,7 +407,7 @@ ${up.map((x) => `- [${phaseName(x.phase)}] ${x.name}：${(x.drill && x.drill.reg
 }
 const DRILL_SCHEMA = `{"name": 练习名, "minuten": 整数, "ziele": 从[协调, 反应, 速度, 技术, 体能, 比赛理解]中选, "aufbau": 场地与分组, "regeln": 玩法2-4句, "wettkampf": 怎么计分/怎么赢, "coachingCue": 一句口令, "leichter": 变简单, "schwerer": 变难}`;
 function systemText(input) {
-  return `你是在德国执教U12篮球的资深青少年教练的备课助手。${isDe(input) ? "所有给教练看的文字（reply、标题、练习名、场地、玩法、计分、口令、简单一点、难一点）都用德语写，用德国青少年篮球教练常用的说法。JSON的键名和段id不变。简短，教练能在场边直接照着念。" : "用中文回答，简短，教练能在场边直接照着念。"}
+  return `你是在德国执教U12篮球的资深青少年教练的备课助手。${foreign(input) ? `所有给教练看的文字（reply、标题、练习名、场地、玩法、计分、口令、简单一点、难一点）都用${foreign(input)}写，用${isDe(input) ? "德国" : ""}青少年篮球教练常用的说法。JSON的键名和段id不变。简短，教练能在场边直接照着念。` : "用中文回答，简短，教练能在场边直接照着念。"}
 训练理念：协调、反应、速度比一切都重要。每个练习都是带计分或输赢的游戏，排队等待要短，所有孩子都在动，所有篮筐都用上。
 适合孩子：不做长时间静态拉伸，不负重。
 每节课固定5段，顺序不变（id：内容）：
@@ -467,7 +473,7 @@ function loadSettings() {
 }
 function renderSettingsPill() {
   const i = readInput();
-  $("settings-pill").textContent = `${i.dauer}分钟 · ${i.spieler}人 · ${i.koerbe}筐 · 比赛≥${i.spielMin}′${i.kalt ? " · 天冷" : ""}${isDe(i) ? " · Deutsch" : ""}  ✎`;
+  $("settings-pill").textContent = `${i.dauer}分钟 · ${i.spieler}人 · ${i.koerbe}筐 · 比赛≥${i.spielMin}′${i.kalt ? " · 天冷" : ""}${isDe(i) ? " · Deutsch" : i.sprache === "en" ? " · English" : ""}  ✎`;
 }
 
 /* ---------- rendering ---------- */
@@ -479,7 +485,9 @@ function el(tag, attrs, ...kids) {
 }
 const phaseMeta = (id) => PHASES.find((x) => x.id === id) || { name: id, color: "var(--muted)" };
 function planAsText(plan, input) {
-  const L = isDe(input)
+  const L = input && input.sprache === "en"
+    ? { plan: "Session plan", min: " min", ph: (id) => `[${phaseMeta(id).en || phaseMeta(id).name}] `, par: (x) => ` (${x}) `, score: " Scoring: ", cue: " Cue: ", q: (c) => `"${c}"`, mat: "Equipment: " }
+    : isDe(input)
     ? { plan: "Trainingsplan", min: " Min", ph: (id) => `[${phaseMeta(id).de || phaseMeta(id).name}] `, par: (x) => ` (${x}) `, score: " Wertung: ", cue: " Cue: ", q: (c) => `„${c}“`, mat: "Material: " }
     : { plan: "训练计划", min: "分钟", ph: (id) => `【${phaseMeta(id).name}】`, par: (x) => `（${x}）`, score: " 计分：", cue: " 口令：", q: (c) => `「${c}」`, mat: "器材：" };
   const lines = [`${plan.titel || L.plan}${input ? L.par(input.dauer + L.min).trimEnd() : ""}`];
@@ -516,7 +524,7 @@ function planCard(m) {
       drillDetail(m, pi, ui, u)), drillTools(m, p.id, u))));
     card.append(sec);
   });
-  if (plan.materialhinweis) card.append(el("div", { className: "meta", style: "margin-top:8px" }, "器材：" + plan.materialhinweis));
+  if (plan.materialhinweis) card.append(el("div", { className: "meta", style: "margin-top:8px" }, `器材：${plan.materialhinweis}`));
 
   const quote = el("button", { type: "button" }, "基于这个改");
   quote.addEventListener("click", () => setReplyTo(m));
@@ -669,7 +677,7 @@ function courtSvg(d) {
 }
 function detailPrompt(input, phaseId, u) {
   const names = Object.keys(HALF_SPOTS).join("、");
-  return `你是U12篮球教练助手。为下面这个练习写详细说明，并描述一张场地示意图。${isDe(input) ? "schritte和fehler用德语写；地点名照抄下面的中文名（它们是程序用的代号，不要翻译）。" : "用中文，"}教练要能照着在场边摆位和讲解。
+  return `你是U12篮球教练助手。为下面这个练习写详细说明，并描述一张场地示意图。${foreign(input) ? `schritte和fehler用${foreign(input)}写；地点名照抄下面的中文名（它们是程序用的代号，不要翻译）。` : "用中文，"}教练要能照着在场边摆位和讲解。
 条件：${input ? `${input.spieler}人，${input.koerbe}个篮筐，器材：${input.material || "未说明"}` : "未说明"}。所属环节：${phaseMeta(phaseId).name}。
 练习：${JSON.stringify({ name: u.name, minuten: u.minuten, aufbau: u.aufbau, regeln: u.regeln, wettkampf: u.wettkampf })}
 
@@ -719,7 +727,7 @@ function drillTools(m, phaseId, u) {
 function swapDrill(m, phaseId, u) {
   if (state.ctl) return;
   setReplyTo(m);
-  $("text").value = `把「${u.name}」换成另一个${phaseMeta(phaseId).name}练习，${u.minuten}分钟不变，其他练习不动。`;
+  $("text").value = tr(`把「${u.name}」换成另一个${phaseMeta(phaseId).name}练习，${u.minuten}分钟不变，其他练习不动。`);
   send();
 }
 /** Tapping the active rating again removes the drill from the library. Returns an error text or "". */
@@ -746,14 +754,14 @@ function drillDetail(m, pi, ui, u) {
     if (err) box.append(el("div", { className: "warnbox" }, err));
     if (!dt) { if (state.sample) box.append(drawBtn("画场地图")); return; }
     const { problem } = normalizeDetail(dt);
-    if (problem) box.append(el("div", { className: "warnbox" }, problem + "。"), drawBtn("重新画图"));
+    if (problem) box.append(el("div", { className: "warnbox" }, `${problem}。`), drawBtn("重新画图"));
     if (dt.fromLib) box.append(el("div", { className: "lib-note" }, "这张图来自练习库，练习有改动的话可以重画。", drawBtn("按这次的说明重画")));
     if (dt.diagramm && !problem) {
       const { node, problems } = courtSvg(dt.diagramm);
       const demo = el("button", { type: "button", className: "demo-btn" }, "▶ 按步骤演示");
       demo.addEventListener("click", () => { node.classList.remove("demo"); void node.getBoundingClientRect(); node.classList.add("demo"); });
       box.append(el("div", { className: "court-wrap" }, node,
-        el("div", { className: "legend" }, "● 蓝=进攻", "■ 红=防守", "▲ 标志桶", Object.values(ARROW).map((a) => el("span", { style: `color:${a.color}` }, "→ " + a.label))),
+        el("div", { className: "legend" }, "● 蓝=进攻", "■ 红=防守", "▲ 标志桶", Object.values(ARROW).map((a) => el("span", { style: `color:${a.color}` }, `→ ${a.label}`))),
         problems.length ? el("div", { className: "warnbox" }, "图里有些内容没画出来：", el("ul", {}, problems.map((p) => el("li", {}, p)))) : null, demo));
     }
     const schritte = Array.isArray(dt.schritte) ? dt.schritte : [], fehler = Array.isArray(dt.fehler) ? dt.fehler : [];
@@ -794,7 +802,7 @@ function startRun(m) {
       if (run.closed) { lock.release().catch((e) => console.warn("wake lock release failed", e)); return; }
       run.lock = lock; note.textContent = "";
     }
-    catch (e) { console.warn("wake lock refused", e); note.textContent = "没能保持亮屏（" + (e && e.name) + "），锁屏后计时照常走。"; }
+    catch (e) { console.warn("wake lock refused", e); note.textContent = `没能保持亮屏（${e && e.name}），锁屏后计时照常走。`; }
   };
   const onVisible = () => { if (document.visibilityState === "visible") { keepAwake(); tick(); } };
   const timer = setInterval(tick, 250);
@@ -825,7 +833,7 @@ function startRun(m) {
       el("div", { className: "run-body" },
         el("h2", {}, u.name), clockNode,
         el("div", { className: "run-cue" }, `「${u.coachingCue || ""}」`),
-        el("p", {}, u.regeln || ""), u.wettkampf ? el("p", { className: "run-score" }, "计分：" + u.wettkampf) : null,
+        el("p", {}, u.regeln || ""), u.wettkampf ? el("p", { className: "run-score" }, `计分：${u.wettkampf}`) : null,
         pic ? el("div", { className: "court-wrap" }, pic) : null, note),
       el("div", { className: "run-next" }, next ? `下一个：${next.u.name}（${next.u.minuten}′）` : "这是最后一个"),
       el("div", { className: "run-bar" },
@@ -882,9 +890,10 @@ async function drawEach(m) {
   }
 }
 
+const DATE_LOCALE = window.U12I18n && window.U12I18n.lang === "en" ? "en-GB" : "zh-CN";
 function dayLabel(ts) {
   const d = new Date(ts);
-  return isNaN(d) ? "" : d.toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" }) + " " + d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+  return isNaN(d) ? "" : d.toLocaleDateString(DATE_LOCALE, { month: "long", day: "numeric", weekday: "short" }) + " " + d.toLocaleTimeString(DATE_LOCALE, { hour: "2-digit", minute: "2-digit" });
 }
 const bubbleCache = new WeakMap(); // message → {key, node}: re-renders reuse the node, so pictures are not rebuilt and open sections stay open
 /** Rebuilds a message only when something it shows changed; global changes (library edits) bump state.gen. */
@@ -935,7 +944,7 @@ function renderQuick() {
   const items = hasPlan
     ? ["换一个神经激活游戏", "热身再好玩一点", "技术段更多对抗", "比赛加一条快攻规则", "同样重点，出一节新课"]
     : ["这周练快攻：长传和2打1", "练接球投篮，多点比赛", "练防守脚步，孩子注意力差"];
-  $("quick").replaceChildren(...items.map((t) => { const b = el("button", { type: "button" }, t); b.addEventListener("click", () => { $("text").value = t; send(); }); return b; }));
+  $("quick").replaceChildren(...items.map((t) => { const b = el("button", { type: "button" }, t); b.addEventListener("click", () => { $("text").value = tr(t); send(); }); return b; }));
 }
 function setReplyTo(m) {
   state.replyTo = m;
@@ -989,7 +998,7 @@ function openLib() {
     const key = libKey(x.name);
     const blocked = x.phase === "aktivierung" && drillNames(state.held, "aktivierung").map(norm).includes(norm(x.name)); // the no-repeat rule would reject it
     const use = el("button", { type: "button", disabled: blocked }, blocked ? `最近${RECENT_N}节上过，之后再排` : "排进下节课");
-    use.addEventListener("click", () => { dlg.close(); if (isPhone()) toggleSide(false); $("text").value = `下节课用上「${x.name}」`; autoGrow(); $("text").focus(); });
+    use.addEventListener("click", () => { dlg.close(); if (isPhone()) toggleSide(false); $("text").value = tr(`下节课用上「${x.name}」`); autoGrow(); $("text").focus(); });
     const rm = el("button", { type: "button" }, x.rating === "up" ? "移出练习库" : "恢复（不再排除）");
     rm.addEventListener("click", async () => {
       rm.disabled = true;
@@ -1128,7 +1137,7 @@ async function send(ev) {
   if (state.loading) { notice("聊天记录还在加载，稍等再发。"); return; }
   const input = readInput();
   const bad = inputProblems(input);
-  if (bad.length) { notice("上课条件有问题：" + bad.join("；") + "。点左下角 + 修改。"); return; }
+  if (bad.length) { notice(`上课条件有问题：${bad.join("；")}。点左下角 + 修改。`); return; }
   const ctl = (state.ctl = new AbortController()); // busy from here: a second send waits, a thread switch cancels
   $("send").textContent = "停止"; $("send").disabled = false;
   const base = state.replyTo ? state.replyTo.plan : ([...state.msgs].reverse().find((m) => m.plan) || {}).plan || null;
@@ -1204,6 +1213,15 @@ async function start() {
   $("close-sheet").addEventListener("click", close);
   $("sheet").addEventListener("click", (e) => { if (e.target === $("sheet")) close(); });
   $("send").disabled = true;
+  if (window.U12I18n) {
+    $("f-lang").value = U12I18n.lang;
+    $("f-lang").addEventListener("change", () => {
+      // drills follow the interface language unless the coach picked another one (German for assistants)
+      if ($("f-sprache").value === U12I18n.lang) $("f-sprache").value = $("f-lang").value;
+      saveSettings();
+      U12I18n.setLang($("f-lang").value);
+    });
+  } else $("f-lang").closest("label").hidden = true;
   try { if (localStorage.getItem("u12-side") === "closed") document.body.classList.add("side-closed"); }
   catch (e) { console.warn("side state not restored", e); }
   $("toggle-side").addEventListener("click", () => toggleSide());
@@ -1238,5 +1256,5 @@ async function start() {
   state.ready = true;
   $("send").disabled = !sample;
 }
-start().catch((e) => { console.error("boot failed", e); notice("页面启动失败：" + (e && e.message)); });
+start().catch((e) => { console.error("boot failed", e); notice(`页面启动失败：${e && e.message}`); });
 </script>
