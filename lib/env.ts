@@ -27,7 +27,7 @@ export function pickEnv<K extends string>(
     if (!name) return { ok: false, missing: spec[key].join(" / ") };
     const value = source[name] as string;
     // the Supabase dashboard also shows the REST endpoint (…/rest/v1/); clients need the bare project URL
-    env[key] = key === "url" ? value.trim().replace(//(rest|auth)/v1/?$/, "").replace(//+$/, "") : value.trim();
+    env[key] = key === "url" ? value.trim().replace(/\/(rest|auth)\/v1\/?$/, "").replace(/\/+$/, "") : value.trim();
   }
   return { ok: true, env };
 }
