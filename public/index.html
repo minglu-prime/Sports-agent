@@ -1,0 +1,1229 @@
+<title>U12 Trainingsplaner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: a familiar phone chat. Fixed top bar, scrolling messages, fixed composer. Plans arrive as cards inside the assistant's bubbles. */
+:root {
+  --bg: #EDEDED; --bar: #F7F7F7; --bubble-in: #FFFFFF; --bubble-out: #A9EA7A; --ink: #191919; --muted: #7F7F7F; --line: #DADADA;
+  --accent: #07A35A; --accent-ink: #FFFFFF; --card: #F7F8FA; --warn-bg: #FFF5E0; --warn: #8A5300; --err-bg: #FDECEC; --err: #A11D1D;
+  --p1: #E8743B; --p2: #2E9C74; --p3: #6A55D6; --p4: #2B7BD0; --p5: #C79A12;
+  --f-body: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+  --f-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111111; --bar: #1E1E1E; --bubble-in: #2C2C2C; --bubble-out: #3EB575; --ink: #E9E9E9; --muted: #8F8F8F; --line: #333333;
+  --accent: #2DBE73; --accent-ink: #08130D; --card: #242424; --warn-bg: #3A2C10; --warn: #F2C97C; --err-bg: #3A1616; --err: #F4A3A3;
+  --p1: #F08A55; --p2: #4CC398; --p3: #9A88F0; --p4: #5AA6E8; --p5: #E0B547; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #111111; --bar: #1E1E1E; --bubble-in: #2C2C2C; --bubble-out: #3EB575; --ink: #E9E9E9; --muted: #8F8F8F; --line: #333333;
+  --accent: #2DBE73; --accent-ink: #08130D; --card: #242424; --warn-bg: #3A2C10; --warn: #F2C97C; --err-bg: #3A1616; --err: #F4A3A3;
+  --p1: #F08A55; --p2: #4CC398; --p3: #9A88F0; --p4: #5AA6E8; --p5: #E0B547; color-scheme: dark; }
+
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 400 16px/1.5 var(--f-body); display: flex; }
+.main { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; }
+#side { flex: none; width: 260px; height: 100%; background: var(--bar); border-right: 1px solid var(--line); display: flex; flex-direction: column; box-sizing: border-box;
+  padding: 10px 8px calc(10px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
+body.side-closed #side { display: none; }
+#side .new { font: 600 15px var(--f-body); color: var(--ink); background: var(--bubble-in); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; text-align: left; cursor: pointer; }
+#side .lib-open { margin-top: 8px; font: 400 14px var(--f-body); color: var(--ink); background: none; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; text-align: left; cursor: pointer; }
+#lib-dlg { width: min(560px, calc(100vw - 32px)); max-height: 85vh; border: 0; border-radius: 12px; padding: 12px 16px 16px; background: var(--bar); color: var(--ink); box-sizing: border-box; }
+#lib-dlg::backdrop { background: rgba(0, 0, 0, .35); }
+.lib-head { display: flex; justify-content: space-between; align-items: center; }
+.lib-head h2 { margin: 0; font-size: 17px; }
+#lib-dlg h3 { font-size: 13px; margin: 14px 0 6px; }
+#lib-dlg ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+#lib-dlg li { background: var(--bubble-in); border-radius: 8px; padding: 8px 10px; display: grid; gap: 4px; }
+.lib-name { font-weight: 600; }
+.lib-rules { font-size: 13px; color: var(--muted); }
+.lib-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.lib-acts button:disabled { color: var(--muted); cursor: default; }
+.lib-acts button { font: 400 12px var(--f-body); color: var(--accent); background: none; border: 1px solid var(--line); border-radius: 12px; padding: 3px 9px; cursor: pointer; }
+.lib-empty { color: var(--muted); font-size: 14px; }
+#side h2 { font-size: 12px; font-weight: 400; color: var(--muted); margin: 14px 6px 6px; }
+#threads { flex: 1; overflow-y: auto; display: grid; align-content: start; gap: 2px; }
+#threads button { display: grid; gap: 1px; text-align: left; font: 400 15px/1.35 var(--f-body); color: var(--ink); background: none; border: 0; border-radius: 8px; padding: 8px 10px; cursor: pointer; min-width: 0; }
+#threads button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#threads button small { font-size: 12px; color: var(--muted); }
+#threads button:hover { background: color-mix(in srgb, var(--muted) 12%, transparent); }
+#threads button.active { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+#scrim { display: none; }
+@media (max-width: 899px) {
+  #side { position: fixed; inset: 0 auto 0 0; width: min(82vw, 300px); z-index: 30; transform: translateX(-102%); transition: transform .2s ease; padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
+  body.side-closed #side { display: flex; }
+  body.side-open #side { transform: none; }
+  body.side-open #scrim { display: block; position: fixed; inset: 0; z-index: 25; background: rgba(0, 0, 0, .35); }
+}
+@media (prefers-reduced-motion: reduce) { #side { transition: none; } }
+header .bar-row { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; }
+header .hb { width: 36px; height: 36px; border: 0; background: none; color: var(--ink); font-size: 20px; border-radius: 6px; cursor: pointer; }
+header .hb:hover { background: color-mix(in srgb, var(--muted) 12%, transparent); }
+header h1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wrap { padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+header { background: var(--bar); border-bottom: 1px solid var(--line); text-align: center; padding-block: 10px 8px; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bar); }
+header h1 { font-size: 17px; font-weight: 600; margin: 0; }
+header button.settings-pill { margin-top: 4px; font: 400 12px var(--f-body); color: var(--muted); background: none; border: 0; padding: 2px 6px; cursor: pointer; }
+#log { flex: 1; overflow-y: auto; padding-block: 12px; display: flex; flex-direction: column; gap: 14px; -webkit-overflow-scrolling: touch; }
+.day { align-self: center; font-size: 12px; color: var(--muted); background: color-mix(in srgb, var(--muted) 14%, transparent); border-radius: 4px; padding: 2px 8px; }
+.msg { display: flex; gap: 8px; align-items: flex-start; max-width: 100%; }
+.msg.out { flex-direction: row-reverse; }
+.avatar { flex: none; width: 38px; height: 38px; border-radius: 5px; display: grid; place-items: center; font-size: 15px; font-weight: 600; color: #fff; }
+.msg.in .avatar { background: var(--p1); }
+.msg.out .avatar { background: var(--p4); }
+.bubble { position: relative; background: var(--bubble-in); border-radius: 6px; padding: 9px 12px; max-width: min(78%, 560px); min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.msg.out .bubble { background: var(--bubble-out); color: #111; }
+.bubble.wide { max-width: min(86%, 600px); width: 100%; white-space: normal; }
+.bubble::before { content: ""; position: absolute; top: 13px; width: 0; height: 0; border: 6px solid transparent; }
+.msg.in .bubble::before { left: -11px; border-right-color: var(--bubble-in); }
+.msg.out .bubble::before { right: -11px; border-left-color: var(--bubble-out); }
+.quote { font-size: 13px; color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); border-radius: 4px; padding: 4px 8px; margin-top: 4px; max-width: min(78%, 560px); }
+.msg.out .stack { display: flex; flex-direction: column; align-items: flex-end; min-width: 0; max-width: 100%; }
+.msg.in .stack { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: 100%; }
+.typing { color: var(--muted); }
+.err-bubble { background: var(--err-bg) !important; color: var(--err) !important; }
+
+/* plan card inside a bubble */
+.plan h2 { font-size: 16px; margin: 0 0 6px; font-weight: 600; }
+.plan .meta { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.bar { display: flex; height: 18px; border-radius: 4px; overflow: hidden; gap: 1px; margin-bottom: 8px; }
+.bar span { display: flex; align-items: center; justify-content: center; color: #fff; font: 500 11px var(--f-mono); min-width: 0; overflow: hidden; white-space: nowrap; }
+.phase { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 6px; }
+.phase-title { display: flex; justify-content: space-between; font-weight: 600; font-size: 14px; color: var(--pc); }
+details.drill { margin: 4px 0 0; background: var(--card); border-radius: 6px; padding: 6px 8px; }
+details.drill > summary { cursor: pointer; display: flex; justify-content: space-between; gap: 8px; font-size: 15px; list-style: none; }
+details.drill > summary > span:first-child::before { content: "▸ "; color: var(--muted); }
+details.drill[open] > summary > span:first-child::before { content: "▾ "; }
+.drill-wrap { margin-top: 6px; }
+.drill-wrap > .detail { margin-top: 4px; }
+details.drill > summary::-webkit-details-marker { display: none; }
+details.drill > summary .mono { color: var(--muted); flex: none; }
+details.drill[open] > summary { font-weight: 600; }
+.drill dl { margin: 6px 0 2px; display: grid; gap: 6px; font-size: 14px; }
+.drill dt { font-size: 12px; color: var(--muted); }
+.drill dd { margin: 0; }
+.drill .cue { font-weight: 600; color: var(--pc); }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.warnbox { background: var(--warn-bg); color: var(--warn); border-radius: 6px; padding: 6px 8px; font-size: 13px; margin-bottom: 8px; }
+.warnbox ul { margin: 2px 0 0; padding-left: 18px; }
+.card-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.card-actions button { font: 400 13px var(--f-body); color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 5px 10px; cursor: pointer; }
+.card-actions button.on { color: var(--accent); border-color: var(--accent); }
+.drill-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.drill-tools button { font: 400 12px var(--f-body); color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 12px; padding: 3px 9px; cursor: pointer; }
+.drill-tools button.on { color: var(--accent); border-color: var(--accent); }
+.lib-note { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.lib-note .detail-btn { margin-top: 0; font-size: 12px; padding: 3px 9px; }
+.run { position: fixed; inset: 0; z-index: 60; background: var(--bg); color: var(--ink); display: flex; flex-direction: column; box-sizing: border-box;
+  padding: calc(8px + env(safe-area-inset-top, 0px)) 16px calc(10px + env(safe-area-inset-bottom, 0px)); }
+.run-top { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+.run-phase { color: var(--pc); font-weight: 600; flex: 1; }
+.run-x { font-size: 20px; background: none; border: 0; color: var(--ink); cursor: pointer; padding: 4px 8px; }
+.run-body { flex: 1; overflow-y: auto; display: grid; align-content: start; gap: 8px; padding: 8px 0; max-width: 640px; width: 100%; margin: 0 auto; }
+.run-body h2 { margin: 0; font-size: 24px; }
+.run-clock { font-size: clamp(64px, 22vw, 120px); font-weight: 600; line-height: 1; color: var(--pc); }
+.run.over .run-clock { color: var(--err); animation: run-blink 1s steps(2) infinite; }
+@keyframes run-blink { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .run.over .run-clock { animation: none; } }
+.run-cue { font-size: 20px; font-weight: 600; }
+.run-body p { margin: 0; }
+.run-score { color: var(--muted); }
+.run-note { font-size: 12px; color: var(--muted); }
+.run-next { font-size: 14px; color: var(--muted); padding: 6px 0; text-align: center; }
+.run-bar { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 8px; }
+.run-bar button, .run-end button { font: 600 16px var(--f-body); color: var(--ink); background: var(--bubble-in); border: 1px solid var(--line); border-radius: 10px; padding: 14px 6px; cursor: pointer; }
+.run-bar button:disabled { opacity: .4; }
+.run .run-main { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.run-end { margin: auto; display: grid; gap: 12px; text-align: center; max-width: 360px; }
+.run-end h2 { margin: 0; }
+.run-end p { margin: 0; color: var(--muted); }
+.run-end .run-ghost { background: none; }
+.held-tag { display: inline-block; font-size: 12px; color: var(--accent); margin-left: 6px; font-weight: 400; }
+
+/* drill detail: steps, mistakes, court diagram */
+.detail-btn { font: 400 13px var(--f-body); color: var(--accent); background: none; border: 1px solid var(--accent); border-radius: 14px; padding: 5px 10px; cursor: pointer; margin-top: 6px; }
+.detail { margin-top: 8px; display: grid; gap: 8px; font-size: 14px; }
+.detail ol, .detail ul { margin: 0; padding-left: 20px; display: grid; gap: 3px; }
+.detail h4 { margin: 0; font-size: 12px; color: var(--muted); font-weight: 400; }
+.court-wrap { display: grid; gap: 4px; }
+.court { width: 100%; max-width: 360px; height: auto; display: block; background: var(--card); border-radius: 6px; }
+.court .line { fill: none; stroke: var(--muted); stroke-width: .8; }
+.court text { font: 600 7px var(--f-body); fill: #fff; text-anchor: middle; dominant-baseline: central; }
+.court .nr text { fill: var(--ink); font-size: 6px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--muted); }
+.demo-btn { justify-self: start; font: 400 13px var(--f-body); color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 4px 10px; cursor: pointer; }
+@media (prefers-reduced-motion: no-preference) {
+  .court.demo .arw { opacity: 0; animation: step-in .5s ease-out forwards; animation-delay: var(--d); }
+}
+@keyframes step-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+
+/* composer */
+footer { background: var(--bar); border-top: 1px solid var(--line); padding-block: 8px calc(8px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; }
+.quick { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.quick button { flex: none; font: 400 13px var(--f-body); color: var(--ink); background: var(--bubble-in); border: 1px solid var(--line); border-radius: 14px; padding: 5px 10px; cursor: pointer; }
+.replying { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); border-radius: 4px; padding: 4px 8px; }
+.replying button { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 15px; padding: 0 4px; }
+.row { display: flex; gap: 8px; align-items: flex-end; }
+#text { flex: 1; min-width: 0; resize: none; max-height: 120px; font: 400 16px/1.4 var(--f-body); color: var(--ink); background: var(--bubble-in); border: 0; border-radius: 6px; padding: 9px 10px; }
+.icon-btn { flex: none; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--muted); background: none; color: var(--ink); font-size: 22px; line-height: 1; cursor: pointer; }
+#send { flex: none; font: 600 15px var(--f-body); color: var(--accent-ink); background: var(--accent); border: 0; border-radius: 6px; padding: 9px 14px; cursor: pointer; }
+#send:disabled { opacity: .45; cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* settings sheet */
+#sheet { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, .35); display: flex; align-items: flex-end; }
+#sheet .panel { background: var(--bar); width: 100%; border-radius: 12px 12px 0 0; padding-block: 14px calc(14px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 12px; }
+#sheet h2 { font-size: 16px; margin: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+label { display: grid; gap: 3px; font-size: 13px; color: var(--muted); }
+label input, label select { font: 400 16px var(--f-body); color: var(--ink); background: var(--bubble-in); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; min-width: 0; }
+.check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 15px; }
+.check input { width: 20px; height: 20px; accent-color: var(--accent); }
+#sheet .done { justify-self: end; font: 600 15px var(--f-body); color: var(--accent-ink); background: var(--accent); border: 0; border-radius: 6px; padding: 8px 18px; cursor: pointer; }
+</style>
+
+<aside id="side" aria-label="历史对话">
+  <button type="button" class="new" id="side-new">＋ 新对话</button>
+  <h2>历史对话</h2>
+  <nav id="threads"></nav>
+  <button type="button" class="lib-open" id="open-lib">练习库</button>
+</aside>
+<dialog id="lib-dlg" aria-label="练习库"></dialog>
+<div id="scrim"></div>
+<div class="main">
+<header class="wrap">
+  <div class="bar-row">
+    <button type="button" class="hb" id="toggle-side" aria-label="展开或收起历史对话">☰</button>
+    <h1 id="title">篮球备课助手</h1>
+    <button type="button" class="hb" id="new-chat" aria-label="新对话">✎</button>
+  </div>
+  <button type="button" class="settings-pill" id="settings-pill" aria-label="修改上课条件"></button>
+</header>
+
+<div id="log" class="wrap" aria-live="polite"></div>
+
+<footer class="wrap">
+  <div class="quick" id="quick"></div>
+  <div class="replying" id="replying" hidden><span id="replying-text"></span><button type="button" id="replying-x" aria-label="取消引用">×</button></div>
+  <form class="row" id="composer">
+    <button type="button" class="icon-btn" id="open-sheet" aria-label="上课条件">+</button>
+    <textarea id="text" rows="1" placeholder="说说今天想练什么…" aria-label="消息"></textarea>
+    <button type="submit" id="send">发送</button>
+  </form>
+</footer>
+
+</div>
+<div id="sheet" hidden>
+  <div class="panel wrap" role="dialog" aria-label="上课条件">
+    <h2>上课条件</h2>
+    <div class="grid">
+      <label for="f-dauer">时长（分钟）<input id="f-dauer" type="number" min="45" max="150" step="5" value="90"></label>
+      <label for="f-spieler">人数<input id="f-spieler" type="number" min="2" max="40" value="12"></label>
+      <label for="f-koerbe">篮筐<input id="f-koerbe" type="number" min="1" max="12" value="2"></label>
+      <label for="f-spiel">比赛至少（分钟）<input id="f-spiel" type="number" min="20" max="60" value="20"></label>
+    </div>
+    <label for="f-material">器材<input id="f-material" type="text" value="12个球，20个标志桶，2套对抗背心"></label>
+    <label for="f-sprache">练习内容的语言<select id="f-sprache"><option value="zh">中文</option><option value="de">Deutsch（给德国助教看）</option></select></label>
+    <label class="check" for="f-kalt"><input id="f-kalt" type="checkbox" checked>天冷：先把核心体温提上来</label>
+    <button type="button" class="done" id="close-sheet">完成</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+const PHASES = [
+  { id: "aufwaermen",   name: "热身",       de: "Aufwärmen",                 color: "var(--p1)", hint: "跑动游戏，先把核心体温提上来" },
+  { id: "mobilisation", name: "灵活与弹跳", de: "Mobilisation & Sprungkraft", color: "var(--p2)", hint: "动态拉伸做成游戏，单脚跳等弹性练习" },
+  { id: "aktivierung",  name: "神经激活",   de: "Neuro-Aktivierung",         color: "var(--p3)", hint: "反应游戏，如头-胸-球、两人抢球，每周换花样" },
+  { id: "technik",      name: "技术",       de: "Technik",                   color: "var(--p4)", hint: "本周重点做成对抗或比赛形式" },
+  { id: "spiel",        name: "比赛",       de: "Abschlussspiel",            color: "var(--p5)", hint: "真比赛，加一条和重点相关的规则" },
+];
+const RECENT_N = 4;
+/** Output language of the drill content. The page itself stays Chinese. Old messages have no setting: Chinese. */
+const isDe = (input) => !!input && input.sprache === "de";
+const $ = (id) => document.getElementById(id);
+/** The artifact runtime hands out frozen values (database rows, Claude's parsed JSON); the page edits plans in place, so copy them on the way in. */
+const editable = (v) => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
+const state = { gen: 0, ready: false, sample: null, db: null, uid: null, tid: null, threads: [], held: [], lib: new Map(), msgs: [], replyTo: null, ctl: null };
+
+/* ---------- pure logic ---------- */
+const norm = (s) => String(s || "").toLowerCase().replace(/[\s\p{P}]+/gu, "");
+function drillNames(plans, phaseId) {
+  const out = [];
+  plans.forEach((pl) => (Array.isArray(pl && pl.phasen) ? pl.phasen : [])
+    .forEach((p) => (!phaseId || (p && p.id === phaseId)) && (Array.isArray(p && p.uebungen) ? p.uebungen : []).forEach((u) => u && u.name && out.push(u.name))));
+  return out;
+}
+
+/** Chinese problem strings; empty = plan passes. Never throws on malformed input. */
+function validatePlan(plan, input, recentPlans, disliked = []) {
+  const probs = [];
+  if (!plan || typeof plan !== "object" || !Array.isArray(plan.phasen)) return ["回复里没有完整的计划（缺少 phasen）。"];
+  const ids = plan.phasen.map((p) => p && p.id);
+  if (ids.join(",") !== PHASES.map((p) => p.id).join(",")) probs.push(`五段顺序不对，应为：${PHASES.map((p) => p.name).join(" → ")}。`);
+  let total = 0;
+  const seen = new Set();
+  const notLiked = new Set(disliked.map(norm));
+  plan.phasen.forEach((p) => {
+    if (!p) return;
+    const name = (PHASES.find((x) => x.id === p.id) || { name: p.id }).name;
+    const drills = Array.isArray(p.uebungen) ? p.uebungen : [];
+    if (!drills.length) probs.push(`「${name}」没有练习。`);
+    let sum = 0;
+    drills.forEach((u, i) => {
+      const m = Number(u && u.minuten);
+      if (!Number.isInteger(m) || m <= 0) probs.push(`「${name}」第 ${i + 1} 个练习没有有效分钟数。`);
+      else sum += m;
+      ["name", "aufbau", "regeln", "wettkampf", "coachingCue", "leichter", "schwerer"].forEach((k) => {
+        if (!u || typeof u[k] !== "string" || !u[k].trim()) probs.push(`「${name}」第 ${i + 1} 个练习缺少「${k}」。`);
+      });
+      const n = norm(u && u.name);
+      if (n && seen.has(n)) probs.push(`练习「${u.name}」重复出现。`);
+      if (n && notLiked.has(n)) probs.push(`「${u.name}」孩子不喜欢（教练点过👎），换一个。`);
+      seen.add(n);
+    });
+    if (Number(p.minuten) !== sum) probs.push(`「${name}」标了 ${p.minuten} 分钟，练习加起来是 ${sum} 分钟。`);
+    total += sum;
+  });
+  if (total !== input.dauer) probs.push(`总时长 ${total} 分钟，要求 ${input.dauer} 分钟。`);
+  const mins = (id) => { const p = plan.phasen.find((x) => x && x.id === id); return p && Array.isArray(p.uebungen) ? p.uebungen.reduce((a, u) => a + (Number(u && u.minuten) || 0), 0) : 0; };
+  if (mins("spiel") < input.spielMin) probs.push(`比赛只有 ${mins("spiel")} 分钟，至少要 ${input.spielMin} 分钟。`);
+  // ponytail: fixed 10-minute floor for a cold hall; make it a setting if it turns out too strict
+  if (input.kalt && mins("aufwaermen") < 10) probs.push(`天冷，热身只有 ${mins("aufwaermen")} 分钟，至少要 10 分钟。`);
+  const used = new Set(drillNames(recentPlans, "aktivierung").map(norm));
+  const akt = plan.phasen.find((p) => p && p.id === "aktivierung");
+  (akt && Array.isArray(akt.uebungen) ? akt.uebungen : []).forEach((u) => {
+    if (used.has(norm(u && u.name))) probs.push(`神经激活「${u.name}」最近 ${RECENT_N} 节课已经上过。`);
+  });
+  return probs;
+}
+
+/* ---------- drill library: 👍/👎 after a held session, private per coach ---------- */
+/** Stable doc id for a drill name, so the same drill rated in two plans is one library entry. */
+function libKey(name) {
+  let h = 5381;
+  for (const c of norm(name)) h = (h * 33 + c.codePointAt(0)) >>> 0;
+  return "lib_" + h.toString(36);
+}
+/** Parses Claude's detail answer. A missing diagram is reported, never shown as a silent text-only answer. */
+function normalizeDetail(dt) {
+  if (!dt || typeof dt !== "object") return { detail: null, problem: "回答不是有效的图解格式" };
+  const diagramm = dt.diagramm || dt.diagram || null;
+  const detail = JSON.parse(JSON.stringify({ schritte: Array.isArray(dt.schritte) ? dt.schritte : [], fehler: Array.isArray(dt.fehler) ? dt.fehler : [], diagramm }));
+  const problem = !diagramm || typeof diagramm !== "object" ? "这次回答里没有场地图" : !Array.isArray(diagramm.elemente) || !diagramm.elemente.length ? "场地图里没有任何球员或标志" : "";
+  return { detail, problem };
+}
+/** A drill needs a (new) picture when it has none or the saved one has no usable court diagram. */
+const needsPicture = (u) => !u.detail || !!normalizeDetail(u.detail).problem;
+/** The model may answer with null or junk entries; the page renders objects only. Structure problems stay for the validator. */
+function cleanPlan(plan) {
+  if (!plan || typeof plan !== "object" || !Array.isArray(plan.phasen)) return plan;
+  const isObj = (x) => !!x && typeof x === "object" && !Array.isArray(x);
+  return { ...plan, phasen: plan.phasen.filter(isObj).map((p) => ({ ...p, uebungen: (Array.isArray(p.uebungen) ? p.uebungen : []).filter(isObj) })) };
+}
+/** Plans of the sessions most recently marked held (older records have no heldAt: their plan time stands in). */
+function recentHeld(docs, n) {
+  const at = (h) => String(h.heldAt || h.ts || "");
+  return [...docs].sort((a, b) => (at(a) < at(b) ? 1 : -1)).slice(0, n).map((h) => h.plan);
+}
+const drillsOf = (plan) => (plan && Array.isArray(plan.phasen) ? plan.phasen : []).flatMap((p) => (p && Array.isArray(p.uebungen) ? p.uebungen.filter(Boolean) : []));
+/** Copies saved pictures of liked drills onto drills of a new plan that have the same name. Returns how many. */
+function reuseDetails(plan, lib) {
+  const pics = new Map(lib.filter((x) => x && x.rating === "up" && x.drill && x.drill.detail && !normalizeDetail(x.drill.detail).problem).map((x) => [norm(x.name), x.drill.detail]));
+  let n = 0;
+  drillsOf(plan).forEach((u) => {
+    const d = !u.detail && pics.get(norm(u.name));
+    if (d) { u.detail = { ...JSON.parse(JSON.stringify(d)), fromLib: true }; n++; }
+  });
+  return n;
+}
+/** After an edit, drills Claude left unchanged (same name and rules) keep the picture they had. Returns how many. */
+function carryDetails(plan, base) {
+  const key = (u) => [u.name, u.regeln, u.aufbau].map(norm).join("|"); // the picture shows the setup too
+  const pics = new Map(drillsOf(base).filter((u) => !needsPicture(u)).map((u) => [key(u), u.detail]));
+  let n = 0;
+  drillsOf(plan).forEach((u) => {
+    const d = !u.detail && pics.get(key(u));
+    if (d) { u.detail = JSON.parse(JSON.stringify(d)); n++; }
+  });
+  return n;
+}
+/** Plan JSON for prompts: pictures stay out, Claude never needs them and they are most of the size. */
+const planJson = (plan) => JSON.stringify(plan, (k, v) => (k === "detail" ? undefined : v));
+
+/* ---------- practice mode: one drill at a time with a countdown ---------- */
+function runSteps(plan) {
+  const out = [];
+  let t = 0;
+  (plan && Array.isArray(plan.phasen) ? plan.phasen : []).forEach((p) => (p && Array.isArray(p.uebungen) ? p.uebungen : []).forEach((u) => {
+    const m = Number(u && u.minuten) || 0;
+    if (m > 0) { out.push({ phaseId: p.id, u, start: t, sec: m * 60 }); t += m * 60; }
+  }));
+  return out;
+}
+/** Countdown text: rounds up so "0:00" only shows when time is really over; overtime gets a minus. */
+function clock(sec) {
+  const a = Math.ceil(Math.abs(sec));
+  return (sec < 0 && a ? "-" : "") + Math.floor(a / 60) + ":" + String(a % 60).padStart(2, "0");
+}
+
+/** Library view: liked drills grouped by phase in session order (newest first), disliked ones apart. */
+function libGroups(lib) {
+  const order = (id) => { const i = PHASES.findIndex((p) => p.id === id); return i < 0 ? PHASES.length : i; };
+  const newest = (a, b) => (String(a.ts) < String(b.ts) ? 1 : -1);
+  const liked = [];
+  lib.filter((x) => x && x.rating === "up")
+    .sort((a, b) => order(a.phase) - order(b.phase) || String(a.phase).localeCompare(String(b.phase)) || newest(a, b))
+    .forEach((x) => { const g = liked[liked.length - 1]; if (g && g.phase === x.phase) g.items.push(x); else liked.push({ phase: x.phase, items: [x] }); });
+  return { liked, disliked: lib.filter((x) => x && x.rating === "down").sort(newest) };
+}
+
+/* ---------- prompts ---------- */
+function libText(lib) {
+  // ponytail: newest 30 liked drills go into the prompt; filter by players/baskets/equipment once the library outgrows that
+  const up = lib.filter((x) => x && x.rating === "up").sort((a, b) => (String(a.ts) < String(b.ts) ? 1 : -1)).slice(0, 30);
+  const down = lib.filter((x) => x && x.rating === "down").map((x) => x.name);
+  const phaseName = (id) => (PHASES.find((p) => p.id === id) || { name: id }).name;
+  const out = [];
+  if (up.length) out.push(`教练的练习库（上过课、孩子喜欢）。排课时优先从这里挑适合本次人数、篮筐和器材的，名字保持一致，可以小改规则；最近上过的仍要避开：
+${up.map((x) => `- [${phaseName(x.phase)}] ${x.name}：${(x.drill && x.drill.regeln) || ""}`).join("\n")}`);
+  if (down.length) out.push(`孩子不喜欢的练习，绝对不要再排，也不要换个名字排相似的：${down.join("；")}`);
+  return out.join("\n");
+}
+const DRILL_SCHEMA = `{"name": 练习名, "minuten": 整数, "ziele": 从[协调, 反应, 速度, 技术, 体能, 比赛理解]中选, "aufbau": 场地与分组, "regeln": 玩法2-4句, "wettkampf": 怎么计分/怎么赢, "coachingCue": 一句口令, "leichter": 变简单, "schwerer": 变难}`;
+function systemText(input) {
+  return `你是在德国执教U12篮球的资深青少年教练的备课助手。${isDe(input) ? "所有给教练看的文字（reply、标题、练习名、场地、玩法、计分、口令、简单一点、难一点）都用德语写，用德国青少年篮球教练常用的说法。JSON的键名和段id不变。简短，教练能在场边直接照着念。" : "用中文回答，简短，教练能在场边直接照着念。"}
+训练理念：协调、反应、速度比一切都重要。每个练习都是带计分或输赢的游戏，排队等待要短，所有孩子都在动，所有篮筐都用上。
+适合孩子：不做长时间静态拉伸，不负重。
+每节课固定5段，顺序不变（id：内容）：
+${PHASES.map((p) => `- ${p.id}：${p.name}——${p.hint}`).join("\n")}
+本次条件：总时长${input.dauer}分钟（必须正好），${input.spieler}人，${input.koerbe}个篮筐，比赛至少${input.spielMin}分钟，器材：${input.material || "未说明"}，${input.kalt ? "天冷，热身至少10分钟，先跑动提温再做灵活性" : "不冷"}。
+只用JSON回答：{"reply": 给教练的一两句话, "plan": null 或 {"titel": 标题, "materialhinweis": 器材提示, "phasen": [{"id": 段id, "minuten": 整数, "uebungen": [${DRILL_SCHEMA}]}]}}
+教练要新计划或要改计划时，plan给出完整的5段计划（改动时没提到的部分保持不变）；只是提问时plan为null。每段的minuten等于该段练习分钟之和。`;
+}
+function chatPrompt(input, msgs, basePlan, recentPlans, text, lib = []) {
+  const history = msgs.filter((m) => m.text && !m.error).slice(-8).map((m) => `${m.role === "coach" ? "教练" : "助手"}：${m.text}`).join("\n");
+  return `${systemText(input)}
+
+${contextText(recentPlans, lib)}
+${basePlan ? `当前讨论的计划：\n${planJson(basePlan)}` : "当前没有计划。"}
+
+最近对话：
+${history || "（无）"}
+
+教练现在说：${text}`;
+}
+function contextText(recentPlans, lib) {
+  const recent = drillNames(recentPlans);
+  return [recent.length ? `最近${RECENT_N}节已上课用过的练习（尽量不重复，神经激活绝对不能重复）：${recent.join("；")}` : "还没有已上课记录。", libText(lib)].filter(Boolean).join("\n");
+}
+function repairPrompt(input, plan, problems, recentPlans = [], lib = []) {
+  return `${systemText(input)}
+
+${contextText(recentPlans, lib)}
+
+你上一版计划：
+${planJson(plan)}
+
+它违反了这些规则：
+${problems.map((p) => "- " + p).join("\n")}
+
+请给出修正后的完整计划，JSON格式同上，reply写一句说明改了什么。`;
+}
+
+/* ---------- settings (per-viewer convenience in localStorage) ---------- */
+const FIELDS = ["f-dauer", "f-spieler", "f-koerbe", "f-spiel", "f-material", "f-kalt", "f-sprache"];
+function readInput() {
+  return { dauer: parseInt($("f-dauer").value, 10), spieler: parseInt($("f-spieler").value, 10), koerbe: parseInt($("f-koerbe").value, 10),
+    spielMin: parseInt($("f-spiel").value, 10), material: $("f-material").value.trim(), kalt: $("f-kalt").checked, sprache: $("f-sprache").value };
+}
+function inputProblems(i) {
+  const p = [];
+  if (!(i.dauer >= 45 && i.dauer <= 150)) p.push("时长要在45到150分钟之间");
+  if (!(i.spieler >= 2)) p.push("人数至少2人");
+  if (!(i.koerbe >= 1)) p.push("至少1个篮筐");
+  if (!(i.spielMin >= 20)) p.push("比赛至少20分钟");
+  if (i.spielMin >= i.dauer - 20) p.push("比赛时间太长，其他环节不够排");
+  return p;
+}
+function saveSettings() {
+  try { localStorage.setItem("u12-settings", JSON.stringify(Object.fromEntries(FIELDS.map((f) => [f, $(f).type === "checkbox" ? $(f).checked : $(f).value])))); }
+  catch (e) { console.warn("settings not stored", e); }
+}
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem("u12-settings") || "null");
+    if (s) FIELDS.forEach((f) => { if (f in s) { if ($(f).type === "checkbox") $(f).checked = !!s[f]; else $(f).value = s[f]; } });
+  } catch (e) { console.warn("settings not restored", e); }
+}
+function renderSettingsPill() {
+  const i = readInput();
+  $("settings-pill").textContent = `${i.dauer}分钟 · ${i.spieler}人 · ${i.koerbe}筐 · 比赛≥${i.spielMin}′${i.kalt ? " · 天冷" : ""}${isDe(i) ? " · Deutsch" : ""}  ✎`;
+}
+
+/* ---------- rendering ---------- */
+function el(tag, attrs, ...kids) {
+  const n = document.createElement(tag);
+  Object.entries(attrs || {}).forEach(([k, v]) => { if (k === "style") n.setAttribute("style", v); else if (k in n) n[k] = v; else n.setAttribute(k, v); });
+  kids.flat().forEach((k) => k != null && k !== false && n.append(k));
+  return n;
+}
+const phaseMeta = (id) => PHASES.find((x) => x.id === id) || { name: id, color: "var(--muted)" };
+function planAsText(plan, input) {
+  const L = isDe(input)
+    ? { plan: "Trainingsplan", min: " Min", ph: (id) => `[${phaseMeta(id).de || phaseMeta(id).name}] `, par: (x) => ` (${x}) `, score: " Wertung: ", cue: " Cue: ", q: (c) => `„${c}“`, mat: "Material: " }
+    : { plan: "训练计划", min: "分钟", ph: (id) => `【${phaseMeta(id).name}】`, par: (x) => `（${x}）`, score: " 计分：", cue: " 口令：", q: (c) => `「${c}」`, mat: "器材：" };
+  const lines = [`${plan.titel || L.plan}${input ? L.par(input.dauer + L.min).trimEnd() : ""}`];
+  plan.phasen.forEach((p) => {
+    lines.push("", `${L.ph(p.id)}${p.minuten}${L.min}`);
+    (p.uebungen || []).forEach((u) => lines.push(`· ${u.name}${L.par(u.minuten + "′")}${u.regeln}${L.score}${u.wettkampf}${L.cue}${L.q(u.coachingCue)}`));
+  });
+  if (plan.materialhinweis) lines.push("", L.mat + plan.materialhinweis);
+  return lines.join("\n");
+}
+function planCard(m) {
+  const plan = m.plan;
+  const phases = Array.isArray(plan.phasen) ? plan.phasen : [];
+  const total = phases.reduce((a, p) => a + (Number(p.minuten) || 0), 0) || 1;
+  const card = el("div", { className: "plan" },
+    el("h2", {}, plan.titel || "训练计划", m.held ? el("span", { className: "held-tag" }, "✓ 已上课") : null),
+    el("div", { className: "meta" }, m.input ? `${m.input.dauer}分钟 · ${m.input.spieler}人 · ${m.input.koerbe}筐${m.input.kalt ? " · 天冷" : ""}` : ""));
+  if (m.problems && m.problems.length) card.append(el("div", { className: "warnbox" }, "这版计划没过检查：", el("ul", {}, m.problems.map((p) => el("li", {}, p)))));
+  card.append(el("div", { className: "bar", role: "img", "aria-label": "时间分配" },
+    phases.map((p) => el("span", { style: `width:${(Number(p.minuten) || 0) / total * 100}%;background:${phaseMeta(p.id).color}`, title: `${phaseMeta(p.id).name} ${p.minuten}分钟` }, `${p.minuten}′`))));
+  phases.forEach((p, pi) => {
+    const meta = phaseMeta(p.id);
+    const sec = el("div", { className: "phase", style: `--pc:${meta.color}` }, el("div", { className: "phase-title" }, el("span", {}, meta.name), el("span", { className: "mono" }, `${p.minuten}′`)));
+    (p.uebungen || []).forEach((u, ui) => sec.append(drillCard(u, el("details", { className: "drill" },
+      el("summary", {}, el("span", {}, u.name), el("span", { className: "mono" }, `${u.minuten}′`)),
+      el("dl", {},
+        el("div", {}, el("dt", {}, "练什么"), el("dd", {}, (Array.isArray(u.ziele) ? u.ziele : []).join("、"))),
+        el("div", {}, el("dt", {}, "场地"), el("dd", {}, u.aufbau)),
+        el("div", {}, el("dt", {}, "玩法"), el("dd", {}, u.regeln)),
+        el("div", {}, el("dt", {}, "计分"), el("dd", {}, u.wettkampf)),
+        el("div", {}, el("dt", {}, "口令"), el("dd", { className: "cue" }, `「${u.coachingCue}」`)),
+        el("div", {}, el("dt", {}, "简单一点"), el("dd", {}, u.leichter)),
+        el("div", {}, el("dt", {}, "难一点"), el("dd", {}, u.schwerer))),
+      drillDetail(m, pi, ui, u)), drillTools(m, p.id, u))));
+    card.append(sec);
+  });
+  if (plan.materialhinweis) card.append(el("div", { className: "meta", style: "margin-top:8px" }, "器材：" + plan.materialhinweis));
+
+  const quote = el("button", { type: "button" }, "基于这个改");
+  quote.addEventListener("click", () => setReplyTo(m));
+  const held = el("button", { type: "button", className: m.held ? "on" : "" }, m.held ? "✓ 已上课" : "标记已上课");
+  held.disabled = !state.db || !m.id;
+  if (held.disabled) held.title = state.db ? "这条消息没保存成功，不能标记" : "登录 claude.ai 后才能记录";
+  held.addEventListener("click", () => toggleHeld(m, held));
+  const copy = el("button", { type: "button" }, "复制文字");
+  copy.addEventListener("click", () => copyText(planAsText(plan, m.input), copy));
+  const missing = phases.some((p) => (p.uebungen || []).some(needsPicture));
+  const drawAllBtn = missing && state.sample ? el("button", { type: "button", onclick: () => drawAll(m) }, "给整节课画图") : null;
+  const runBtn = el("button", { type: "button", onclick: () => startRun(m) }, "▶ 上课");
+  card.append(el("div", { className: "card-actions" }, quote, runBtn, held, copy, drawAllBtn));
+  return card;
+}
+/* ---------- court diagram (FIBA court, 1 unit = 10 cm; drill coords are 0–100 on each axis) ---------- */
+const SVGNS = "http://www.w3.org/2000/svg";
+function svg(tag, attrs, ...kids) {
+  const n = document.createElementNS(SVGNS, tag);
+  Object.entries(attrs || {}).forEach(([k, v]) => n.setAttribute(k, v));
+  kids.forEach((k) => k && n.append(k));
+  return n;
+}
+const ARROW = {
+  lauf: { label: "跑动", color: "var(--p4)", dash: "" },
+  pass: { label: "传球", color: "var(--p2)", dash: "3 2" },
+  dribbling: { label: "运球", color: "var(--p1)", dash: "" },
+  wurf: { label: "投篮", color: "var(--p5)", dash: "1 1.5" },
+};
+const MARK = { spieler: "进攻/练习者", verteidiger: "防守", ball: "球", huetchen: "标志桶", trainer: "教练" };
+/* Spots coaches actually name, in 0–100 coords of a half court (x: left→right sideline, y: baseline at top → half-court line).
+   Derived from FIBA geometry: basket 1.575 m from baseline, 3-pt radius 6.75 m, key 4.9 × 5.8 m, half court 15 × 14 m. */
+const HALF_SPOTS = {
+  "篮下": [50, 15], "左低位": [37, 20], "右低位": [63, 20], "罚球线": [50, 41], "左肘区": [34, 41], "右肘区": [66, 41],
+  "左底角": [5, 7], "右底角": [95, 7], "左侧翼": [8, 32], "右侧翼": [92, 32], "左45度": [17, 50], "右45度": [83, 50],
+  "弧顶": [50, 66], "左边线": [3, 72], "右边线": [97, 72], "中线中点": [50, 96], "左中线": [12, 96], "右中线": [88, 96],
+};
+const finite01 = (v) => typeof v === "number" && isFinite(v) && v >= 0 && v <= 100;
+/** Full court: the attacking half is on top (same names), the other half gets the prefix 后场 and is mirrored below. */
+function courtSpots(full) {
+  if (!full) return HALF_SPOTS;
+  const o = { "中圈": [50, 50] };
+  Object.entries(HALF_SPOTS).forEach(([k, [x, y]]) => { o[k] = [x, y / 2]; o["后场" + k] = [x, 100 - y / 2]; });
+  return o;
+}
+/**
+ * Turns Claude's description (named spots, who moves where) into drawable coordinates.
+ * Arrows start where that player currently stands, runs and dribbles move the player, shots go to the nearest basket.
+ * Returns {full, els, arrows, problems}; problems are Chinese strings shown under the diagram, never dropped silently.
+ */
+function layoutDiagram(d) {
+  const full = !!d && d.feld === "ganz";
+  const S = courtSpots(full);
+  const baskets = full ? [[50, 5.6], [50, 94.4]] : [[50, 11.25]];
+  const problems = [];
+  const resolve = (v, what) => {
+    if (Array.isArray(v) && finite01(v[0]) && finite01(v[1])) return [v[0], v[1]];
+    if (typeof v === "string" && S[v]) return S[v].slice();
+    problems.push(`${what}的位置「${Array.isArray(v) ? v.join(",") : v}」看不懂`);
+    return null;
+  };
+  const pos = {}, els = [];
+  (Array.isArray(d && d.elemente) ? d.elemente : []).forEach((e, i) => {
+    if (!e || !MARK[e.typ]) { problems.push(`第 ${i + 1} 个元素类型不对`); return; }
+    const p = resolve(e.ort !== undefined ? e.ort : [e.x, e.y], e.id || MARK[e.typ]);
+    if (!p) return;
+    // ponytail: players sharing a spot (a queue) are fanned out sideways so both stay visible; fine for ≤ 8 markers
+    const ry = (full ? 280 : 140) / 150; // y percent → x-percent units, so spacing is measured as drawn
+    for (let k = 0; k < 8 && els.some((o) => Math.hypot(o.x - p[0], (o.y - p[1]) * ry) < 8.5); k++) p[0] += p[0] > 78 ? -9 : 9;
+    els.push({ id: e.id, typ: e.typ, x: p[0], y: p[1], label: String(e.label || e.id || "").slice(0, 2), ball: !!e.ball });
+    if (e.id) pos[e.id] = [p[0], p[1]];
+  });
+  const arrows = [];
+  (Array.isArray(d && d.aktionen) ? d.aktionen : []).map((a, i) => ({ a, i }))
+    .sort((p, q) => ((Number(p.a && p.a.nr) || p.i + 1) - (Number(q.a && q.a.nr) || q.i + 1)) || p.i - q.i)
+    .forEach(({ a, i }) => {
+      const nr = Number.isInteger(a && a.nr) ? a.nr : i + 1;
+      if (!a || !ARROW[a.typ]) { problems.push(`动作 ${nr} 类型不对`); return; }
+      const from = pos[a.wer];
+      if (!from) { problems.push(`动作 ${nr}：找不到球员「${a.wer}」`); return; }
+      let to, toPlayer = false;
+      if (a.typ === "wurf") to = baskets.reduce((b, c) => (Math.hypot(c[0] - from[0], c[1] - from[1]) < Math.hypot(b[0] - from[0], b[1] - from[1]) ? c : b)).slice();
+      else if (typeof a.nach === "string" && pos[a.nach]) { to = pos[a.nach].slice(); toPlayer = true; }
+      else to = resolve(a.nach, `动作 ${nr}（${a.wer}）`);
+      if (!to) return;
+      arrows.push({ typ: a.typ, from: from.slice(), to, nr, toPlayer });
+      if (a.typ === "lauf" || a.typ === "dribbling") pos[a.wer] = to.slice();
+    });
+  return { full, els, arrows, problems };
+}
+
+/** Returns {node, problems}. Half court = 15 m × 14 m with the basket at the top; full court = 15 m × 28 m, baskets top and bottom. */
+function courtSvg(d) {
+  const { full, els, arrows, problems } = layoutDiagram(d);
+  const W = 150, H = full ? 280 : 140, sx = W / 100, sy = H / 100;
+  const P = (x, y) => [x * sx, y * sy];
+  const lines = svg("g", { class: "line" });
+  const end = (flip) => { // one basket end; flip mirrors it to the bottom baseline
+    const Y = (y) => (flip ? H - y : y);
+    const sweep = flip ? 1 : 0;
+    lines.append(
+      svg("path", { d: `M9 ${Y(0)} L9 ${Y(29.9)} A67.5 67.5 0 0 ${sweep} 141 ${Y(29.9)} L141 ${Y(0)}` }), // 6.75 m three-point line
+      svg("rect", { x: 50.5, y: flip ? H - 58 : 0, width: 49, height: 58 }), // key 4.9 m × 5.8 m
+      svg("circle", { cx: 75, cy: Y(58), r: 18 }), // free-throw circle
+      svg("line", { x1: 66, y1: Y(12), x2: 84, y2: Y(12) }), // backboard
+      svg("circle", { cx: 75, cy: Y(15.75), r: 2.25 })); // ring
+  };
+  lines.append(svg("rect", { x: 0.4, y: 0.4, width: W - 0.8, height: H - 0.8 }));
+  end(false);
+  if (full) { end(true); lines.append(svg("line", { x1: 0, y1: H / 2, x2: W, y2: H / 2 }), svg("circle", { cx: 75, cy: H / 2, r: 18 })); }
+  const root = svg("svg", { viewBox: `0 0 ${W} ${H}`, class: "court", role: "img", "aria-label": full ? "全场示意图" : "半场示意图" }, lines);
+
+  arrows.forEach((a) => {
+    const st = ARROW[a.typ];
+    let [x1, y1] = P(a.from[0], a.from[1]), [x2, y2] = P(a.to[0], a.to[1]);
+    const ang = Math.atan2(y2 - y1, x2 - x1);
+    const trim = (a.toPlayer ? 6 : 1.5);
+    const len = Math.hypot(x2 - x1, y2 - y1) - 5 - trim; // trimmed length; negative would flip the arrow
+    x1 += 5 * Math.cos(ang); y1 += 5 * Math.sin(ang); // leave the player's marker visible
+    x2 -= trim * Math.cos(ang); y2 -= trim * Math.sin(ang);
+    if (len < 2) { problems.push(`动作 ${a.nr}（${st ? st.label : a.typ}）起点和终点太近，没画箭头`); return; }
+    let dpath = `M${x1} ${y1} L${x2} ${y2}`;
+    if (a.typ === "dribbling" && len > 8) { // zigzag = dribble, standard playbook notation
+      const n = Math.max(2, Math.floor(len / 5)), nx = -Math.sin(ang), ny = Math.cos(ang);
+      dpath = `M${x1} ${y1}` + Array.from({ length: n }, (_, k) => { const t = (k + 1) / (n + 1), o = (k % 2 ? -2 : 2); return ` L${x1 + (x2 - x1) * t + nx * o} ${y1 + (y2 - y1) * t + ny * o}`; }).join("") + ` L${x2} ${y2}`;
+    }
+    const head = `M${x2} ${y2} L${x2 - 4 * Math.cos(ang - 0.45)} ${y2 - 4 * Math.sin(ang - 0.45)} L${x2 - 4 * Math.cos(ang + 0.45)} ${y2 - 4 * Math.sin(ang + 0.45)} Z`;
+    const mx = (x1 + x2) / 2 - 4 * Math.sin(ang), my = (y1 + y2) / 2 + 4 * Math.cos(ang);
+    root.append(svg("g", { class: "arw", style: `--d:${(a.nr - 1) * 0.8}s` },
+      svg("path", { d: dpath, style: `fill:none;stroke:${st.color};stroke-width:1.4;stroke-dasharray:${st.dash || "none"}` }),
+      svg("path", { d: head, style: `fill:${st.color}` }),
+      svg("g", { class: "nr" }, svg("circle", { cx: mx, cy: my, r: 3.4, style: "fill:var(--bubble-in);stroke:var(--muted);stroke-width:.4" }),
+        svg("text", { x: mx, y: my }, String(a.nr)))));
+  });
+  els.forEach((e) => {
+    const [x, y] = P(e.x, e.y), label = e.label;
+    let g;
+    if (e.typ === "spieler") g = svg("g", {}, svg("circle", { cx: x, cy: y, r: 4.5, style: "fill:var(--p4)" }), label && svg("text", { x, y }, label));
+    else if (e.typ === "verteidiger") g = svg("g", {}, svg("rect", { x: x - 4.2, y: y - 4.2, width: 8.4, height: 8.4, rx: 1.5, style: "fill:var(--p1)" }), label && svg("text", { x, y }, label));
+    else if (e.typ === "trainer") g = svg("g", {}, svg("rect", { x: x - 4.5, y: y - 4.5, width: 9, height: 9, style: "fill:var(--muted)" }), svg("text", { x, y }, "教"));
+    else if (e.typ === "ball") g = svg("circle", { cx: x, cy: y, r: 2.4, style: "fill:#E8743B;stroke:#7A3410;stroke-width:.5" });
+    else g = svg("path", { d: `M${x} ${y - 3.2} L${x + 2.8} ${y + 2.2} L${x - 2.8} ${y + 2.2} Z`, style: "fill:var(--p5)" });
+    root.append(g);
+    if (e.ball && e.typ !== "ball") root.append(svg("circle", { cx: x + 4.5, cy: y + 3.5, r: 2.2, style: "fill:#E8743B;stroke:#7A3410;stroke-width:.5" }));
+  });
+  return { node: root, problems };
+}
+function detailPrompt(input, phaseId, u) {
+  const names = Object.keys(HALF_SPOTS).join("、");
+  return `你是U12篮球教练助手。为下面这个练习写详细说明，并描述一张场地示意图。${isDe(input) ? "schritte和fehler用德语写；地点名照抄下面的中文名（它们是程序用的代号，不要翻译）。" : "用中文，"}教练要能照着在场边摆位和讲解。
+条件：${input ? `${input.spieler}人，${input.koerbe}个篮筐，器材：${input.material || "未说明"}` : "未说明"}。所属环节：${phaseMeta(phaseId).name}。
+练习：${JSON.stringify({ name: u.name, minuten: u.minuten, aufbau: u.aufbau, regeln: u.regeln, wettkampf: u.wettkampf })}
+
+示意图规则：
+- 只画一组有代表性的人（最多8个标记），站位必须和练习说明一致：几打几就画几个进攻（spieler）几个防守（verteidiger）。
+- 位置用下面的地点名，不要编坐标：${names}。
+- 半场（feld:"halb"）：篮筐在图的上方，进攻朝上打。全场（feld:"ganz"）：进攻方向朝上方篮筐；同样的地点名指前场，加前缀「后场」指下半场（例如「后场罚球线」），另有「中圈」。快攻、长传、全场往返用全场，其余用半场。
+- 实在没有合适的地点名时，才用 [x,y]：x 从左边线0到右边线100，y 从上方底线0到下方（半场是中线，全场是另一条底线）100。
+- 每个人给一个 id（进攻 A1、A2…，防守 D1…）。开始时持球的人写 "ball": true。放在地上、等人去抢的球单独画一个 {"id":"B1","typ":"ball"}。
+- 动作写成「谁（wer）做什么（typ）到哪（nach）」。nach 写地点名，传球时写接球人的 id。投篮（wurf）不用写 nach。跑动和运球之后，这个人就站在新位置，下一个动作从那里开始。
+- nr 是先后顺序，同时发生的动作用同一个 nr。
+
+只用JSON回答：
+{"schritte": [4-6条按顺序的具体步骤，每条一句], "fehler": [2-3条"常见错误→怎么纠正"],
+ "diagramm": {"feld": "halb" 或 "ganz",
+   "elemente": [{"id": "A1", "typ": "spieler"|"verteidiger"|"huetchen"|"trainer"|"ball", "ort": 地点名, "ball": true 或省略}],
+   "aktionen": [{"nr": 1, "wer": "A1", "typ": "lauf"|"dribbling"|"pass"|"wurf", "nach": 地点名或接球人id}]}}
+
+示例（半场2打1）：
+"elemente": [{"id":"A1","typ":"spieler","ort":"弧顶","ball":true},{"id":"A2","typ":"spieler","ort":"右45度"},{"id":"D1","typ":"verteidiger","ort":"罚球线"}],
+"aktionen": [{"nr":1,"wer":"A1","typ":"dribbling","nach":"左肘区"},{"nr":1,"wer":"A2","typ":"lauf","nach":"右低位"},{"nr":2,"wer":"A1","typ":"pass","nach":"A2"},{"nr":3,"wer":"A2","typ":"wurf"}]`;
+}
+const loadingDrills = new WeakSet();
+const drillBoxes = new WeakMap(); // drill → its currently rendered {box, fill}; re-renders replace the entry
+/** The diagram box sits under the drill row, outside the collapsible text, so pictures show without tapping. */
+function drillCard(u, det, tools) {
+  const box = det.querySelector(".detail");
+  det.after(box);
+  return el("div", { className: "drill-wrap" }, det, tools, box);
+}
+function drillTools(m, phaseId, u) {
+  const row = el("div", { className: "drill-tools" });
+  const paint = () => {
+    row.replaceChildren();
+    if (state.sample) row.append(el("button", { type: "button", onclick: () => swapDrill(m, phaseId, u) }, "换一个"));
+    if (!m.held || !state.db) return;
+    const cur = (state.lib.get(libKey(u.name)) || {}).rating;
+    [["up", "👍 孩子喜欢"], ["down", "👎 不再用"]].forEach(([rating, label]) => {
+      const b = el("button", { type: "button", className: cur === rating ? "on" : "" }, label);
+      b.addEventListener("click", async () => { b.disabled = true; const err = await rateDrill(u, phaseId, rating); if (err) { b.disabled = false; b.textContent = err; } else { state.gen++; paint(); renderLibBtn(); renderLog(); } }); // other cards showing this drill update too
+      row.append(b);
+    });
+  };
+  paint();
+  return row;
+}
+function swapDrill(m, phaseId, u) {
+  if (state.ctl) return;
+  setReplyTo(m);
+  $("text").value = `把「${u.name}」换成另一个${phaseMeta(phaseId).name}练习，${u.minuten}分钟不变，其他练习不动。`;
+  send();
+}
+/** Tapping the active rating again removes the drill from the library. Returns an error text or "". */
+async function rateDrill(u, phaseId, rating) {
+  const key = libKey(u.name);
+  try {
+    if ((state.lib.get(key) || {}).rating === rating) { await userCol().doc(key).delete(); state.lib.delete(key); return ""; }
+    const entry = JSON.parse(JSON.stringify({ kind: "lib", name: u.name, phase: phaseId, rating, ts: new Date().toISOString(), drill: u }));
+    await userCol().doc(key).set(entry);
+    state.lib.set(key, entry);
+    return "";
+  } catch (e) {
+    console.error("rating not saved", e);
+    return `没存上（${e && e.code}）`;
+  }
+}
+function drillDetail(m, pi, ui, u) {
+  const box = el("div", { className: "detail" });
+  const drawBtn = (label) => el("button", { type: "button", className: "detail-btn", onclick: () => loadDetail(m, pi, ui, u) }, label);
+  const fill = (err) => {
+    const dt = u.detail;
+    box.replaceChildren();
+    if (loadingDrills.has(u)) { box.append(el("span", { className: "typing" }, "正在画这个练习的场地图…")); return; }
+    if (err) box.append(el("div", { className: "warnbox" }, err));
+    if (!dt) { if (state.sample) box.append(drawBtn("画场地图")); return; }
+    const { problem } = normalizeDetail(dt);
+    if (problem) box.append(el("div", { className: "warnbox" }, problem + "。"), drawBtn("重新画图"));
+    if (dt.fromLib) box.append(el("div", { className: "lib-note" }, "这张图来自练习库，练习有改动的话可以重画。", drawBtn("按这次的说明重画")));
+    if (dt.diagramm && !problem) {
+      const { node, problems } = courtSvg(dt.diagramm);
+      const demo = el("button", { type: "button", className: "demo-btn" }, "▶ 按步骤演示");
+      demo.addEventListener("click", () => { node.classList.remove("demo"); void node.getBoundingClientRect(); node.classList.add("demo"); });
+      box.append(el("div", { className: "court-wrap" }, node,
+        el("div", { className: "legend" }, "● 蓝=进攻", "■ 红=防守", "▲ 标志桶", Object.values(ARROW).map((a) => el("span", { style: `color:${a.color}` }, "→ " + a.label))),
+        problems.length ? el("div", { className: "warnbox" }, "图里有些内容没画出来：", el("ul", {}, problems.map((p) => el("li", {}, p)))) : null, demo));
+    }
+    const schritte = Array.isArray(dt.schritte) ? dt.schritte : [], fehler = Array.isArray(dt.fehler) ? dt.fehler : [];
+    if (schritte.length || fehler.length) {
+      box.append(el("details", { className: "drill" }, el("summary", {}, el("span", {}, "详细步骤和常见错误"), el("span", {}, "")),
+        schritte.length ? el("div", {}, el("h4", {}, "步骤"), el("ol", {}, schritte.map((s) => el("li", {}, String(s))))) : null,
+        fehler.length ? el("div", {}, el("h4", {}, "常见错误"), el("ul", {}, fehler.map((s) => el("li", {}, String(s))))) : null));
+    }
+  };
+  drillBoxes.set(u, { box, fill });
+  fill();
+  return box;
+}
+/** Full-screen practice view. The countdown runs on wall-clock time, so a locked phone does not slow it down. */
+function startRun(m) {
+  const steps = runSteps(m.plan);
+  if (!steps.length) return;
+  const run = { i: 0, left: steps[0].sec, endsAt: 0, buzzed: false, lock: null };
+  const root = el("div", { className: "run", role: "dialog", "aria-modal": "true", "aria-label": "上课模式" });
+  const remaining = () => (run.endsAt ? (run.endsAt - Date.now()) / 1000 : run.left);
+  const clockNode = el("div", { className: "run-clock mono" });
+  const restNode = el("span", { className: "mono" });
+  const note = el("div", { className: "run-note" });
+  const tick = () => {
+    const left = remaining();
+    clockNode.textContent = clock(left);
+    root.classList.toggle("over", left <= 0);
+    restNode.textContent = clock(Math.max(0, left) + steps.slice(run.i + 1).reduce((a, x) => a + x.sec, 0));
+    if (left <= 0 && !run.buzzed) { run.buzzed = true; if (navigator.vibrate) navigator.vibrate([300, 150, 300]); }
+  };
+  const go = (i) => { run.i = i; run.left = steps[i].sec; run.buzzed = false; if (run.endsAt) run.endsAt = Date.now() + run.left * 1000; paint(); };
+  const toggle = () => { if (run.endsAt) { run.left = remaining(); run.endsAt = 0; } else { run.endsAt = Date.now() + run.left * 1000; if (!run.lock) keepAwake(); } paint(); };
+  const keepAwake = async () => {
+    if (run.closed || (run.lock && !run.lock.released)) return;
+    if (!("wakeLock" in navigator)) { note.textContent = "这个浏览器不能保持亮屏，锁屏后计时照常走。"; return; }
+    try {
+      const lock = await navigator.wakeLock.request("screen");
+      if (run.closed) { lock.release().catch((e) => console.warn("wake lock release failed", e)); return; }
+      run.lock = lock; note.textContent = "";
+    }
+    catch (e) { console.warn("wake lock refused", e); note.textContent = "没能保持亮屏（" + (e && e.name) + "），锁屏后计时照常走。"; }
+  };
+  const onVisible = () => { if (document.visibilityState === "visible") { keepAwake(); tick(); } };
+  const timer = setInterval(tick, 250);
+  const close = () => {
+    run.closed = true;
+    clearInterval(timer);
+    document.removeEventListener("visibilitychange", onVisible);
+    if (run.lock) run.lock.release().catch((e) => console.warn("wake lock release failed", e));
+    root.remove();
+  };
+  const finish = () => {
+    clearInterval(timer);
+    const held = el("button", { type: "button", className: "run-main" }, "标记已上课");
+    held.disabled = m.held || !state.db || !m.id;
+    if (m.held) held.textContent = "✓ 已经标记过";
+    held.addEventListener("click", async () => { await toggleHeld(m, held); if (m.held) close(); });
+    root.replaceChildren(el("div", { className: "run-end" }, el("h2", {}, "这节课上完了"),
+      el("p", {}, "标记已上课后，回到计划给每个练习点 👍 或 👎，下次排课会参考。"), held,
+      el("button", { type: "button", className: "run-ghost", onclick: close }, "关闭")));
+  };
+  const paint = () => {
+    const st = steps[run.i], u = st.u, meta = phaseMeta(st.phaseId), next = steps[run.i + 1];
+    const pic = u.detail && u.detail.diagramm && !normalizeDetail(u.detail).problem ? courtSvg(u.detail.diagramm).node : null;
+    root.style.setProperty("--pc", meta.color);
+    root.replaceChildren(
+      el("div", { className: "run-top" }, el("span", { className: "run-phase" }, meta.name), el("span", {}, `${run.i + 1}/${steps.length} · 剩 `, restNode),
+        el("button", { type: "button", className: "run-x", "aria-label": "退出上课模式", onclick: close }, "✕")),
+      el("div", { className: "run-body" },
+        el("h2", {}, u.name), clockNode,
+        el("div", { className: "run-cue" }, `「${u.coachingCue || ""}」`),
+        el("p", {}, u.regeln || ""), u.wettkampf ? el("p", { className: "run-score" }, "计分：" + u.wettkampf) : null,
+        pic ? el("div", { className: "court-wrap" }, pic) : null, note),
+      el("div", { className: "run-next" }, next ? `下一个：${next.u.name}（${next.u.minuten}′）` : "这是最后一个"),
+      el("div", { className: "run-bar" },
+        el("button", { type: "button", disabled: run.i === 0, onclick: () => go(run.i - 1) }, "◀ 上一个"),
+        el("button", { type: "button", className: "run-main", onclick: toggle }, run.endsAt ? "⏸ 暂停" : (run.left < st.sec ? "▶ 继续" : "▶ 开始")),
+        el("button", { type: "button", onclick: () => (next ? go(run.i + 1) : finish()) }, next ? "下一个 ▶" : "结束")));
+    tick();
+  };
+  document.body.append(root);
+  document.addEventListener("visibilitychange", onVisible);
+  keepAwake();
+  paint();
+}
+const refill = (u, err) => { const b = drillBoxes.get(u); if (b && b.box.isConnected) b.fill(err); };
+async function loadDetail(m, pi, ui, u) {
+  if (loadingDrills.has(u) || !state.sample) return;
+  loadingDrills.add(u);
+  refill(u);
+  let err = "";
+  try {
+    const dt = editable(await state.sample.json(detailPrompt(m.input, m.plan.phasen[pi].id, u), { cache: false }));
+    const { detail, problem } = normalizeDetail(dt);
+    if (!detail || problem) throw { code: "invalid_json", message: problem || "回答不是有效的图解格式" };
+    u.detail = detail; // JSON round-tripped: drops undefined fields, which the database refuses
+    if (state.db && m.id) {
+      try { await msgsRef(m.tid || state.tid).doc(m.id).update({ plan: JSON.parse(JSON.stringify(m.plan)) }); }
+      catch (e) { console.error("detail not saved", e); err = `图没存进聊天记录（${e && e.code}），刷新后要重新画。`; }
+    }
+  } catch (e) {
+    console.error("detail failed", e);
+    err = `画图失败：${ERR_COPY[e && e.code] || "请求失败"}（代码：${e && e.code}${e && e.message ? "，" + e.message : ""}）`;
+  } finally {
+    loadingDrills.delete(u);
+    refill(u, err);
+    // last picture done: rebuild the card once so "给整节课画图" goes away
+    if (!err && !drillsOf(m.plan).some(needsPicture) && (m.tid || state.tid) === state.tid) { bubbleCache.delete(m); renderLog(); }
+  }
+}
+/** Draws every drill of a plan one after another (one database write at a time per message). */
+const drawing = new WeakSet();
+/** One run per message. Stops once the coach leaves the thread: reopening loads fresh objects, drawing on the old ones would race them. */
+async function drawAll(m) {
+  if (!m.plan || !Array.isArray(m.plan.phasen) || drawing.has(m)) return;
+  drawing.add(m);
+  try { await drawEach(m); } finally { drawing.delete(m); }
+}
+async function drawEach(m) {
+  for (let pi = 0; pi < m.plan.phasen.length; pi++) {
+    const drills = m.plan.phasen[pi].uebungen || [];
+    for (let ui = 0; ui < drills.length; ui++) {
+      if (!state.msgs.includes(m)) return;
+      if (needsPicture(drills[ui])) await loadDetail(m, pi, ui, drills[ui]);
+    }
+  }
+}
+
+function dayLabel(ts) {
+  const d = new Date(ts);
+  return isNaN(d) ? "" : d.toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" }) + " " + d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+}
+const bubbleCache = new WeakMap(); // message → {key, node}: re-renders reuse the node, so pictures are not rebuilt and open sections stay open
+/** Rebuilds a message only when something it shows changed; global changes (library edits) bump state.gen. */
+function bubble(m) {
+  const key = [state.gen, m.id, m.held, m.quote, !!state.sample, !!state.db, m.text].join("|");
+  const hit = bubbleCache.get(m);
+  if (hit && hit.key === key) return hit.node;
+  const node = buildBubble(m);
+  bubbleCache.set(m, { key, node });
+  return node;
+}
+function buildBubble(m) {
+  const out = m.role === "coach";
+  const b = el("div", { className: "bubble" + (m.plan ? " wide" : "") + (m.error ? " err-bubble" : "") + (m.typing ? " typing" : "") });
+  if (m.text) b.append(m.plan ? el("div", { style: "white-space:pre-wrap;margin-bottom:8px" }, m.text) : m.text);
+  if (m.plan) b.append(planCard(m));
+  const quoted = m.quote && state.msgs.find((x) => x.id === m.quote);
+  const stack = el("div", { className: "stack" }, b, quoted ? el("div", { className: "quote" }, `引用：${quoted.plan ? quoted.plan.titel || "训练计划" : quoted.text}`) : null);
+  return el("div", { className: "msg " + (out ? "out" : "in"), "data-id": m.id || "" }, el("div", { className: "avatar", "aria-hidden": "true" }, out ? "我" : "助"), stack);
+}
+const dayNodes = new Map(); // first message ts of a day → its separator, reused like bubbles
+function renderLog(extra) {
+  const log = $("log");
+  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+  const nodes = [];
+  if (!state.msgs.length) {
+    nodes.push(bubble({ role: "agent", text: "你好，我是备课助手。直接说今天想练什么，比如：\n「这周练快攻，长传和2打1，孩子最近注意力差，多点比赛。」\n我会按 热身 → 灵活与弹跳 → 神经激活 → 技术 → 比赛 排好一节课。不满意就直接说哪里要改。" }));
+  }
+  let lastDay = "";
+  state.msgs.forEach((m) => {
+    const d = m.ts ? new Date(m.ts).toDateString() : "";
+    if (d && d !== lastDay) {
+      if (!dayNodes.has(m.ts)) dayNodes.set(m.ts, el("div", { className: "day" }, dayLabel(m.ts)));
+      nodes.push(dayNodes.get(m.ts)); lastDay = d;
+    }
+    nodes.push(bubble(m));
+  });
+  (extra || []).forEach((m) => nodes.push(bubble(m)));
+  // keep the unchanged leading nodes in place; only the changed tail is swapped
+  let same = 0;
+  while (same < nodes.length && log.children[same] === nodes[same]) same++;
+  while (log.children.length > same) log.lastChild.remove();
+  log.append(...nodes.slice(same));
+  if (atBottom || extra) log.scrollTop = log.scrollHeight;
+}
+function renderQuick() {
+  const hasPlan = state.msgs.some((m) => m.plan);
+  const items = hasPlan
+    ? ["换一个神经激活游戏", "热身再好玩一点", "技术段更多对抗", "比赛加一条快攻规则", "同样重点，出一节新课"]
+    : ["这周练快攻：长传和2打1", "练接球投篮，多点比赛", "练防守脚步，孩子注意力差"];
+  $("quick").replaceChildren(...items.map((t) => { const b = el("button", { type: "button" }, t); b.addEventListener("click", () => { $("text").value = t; send(); }); return b; }));
+}
+function setReplyTo(m) {
+  state.replyTo = m;
+  $("replying").hidden = !m;
+  if (m) { $("replying-text").textContent = `引用：${m.plan.titel || "训练计划"}`; $("text").focus(); }
+}
+function copyText(txt, btn) {
+  const write = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(txt) : Promise.reject(new Error("no clipboard API"));
+  write.then(() => { btn.textContent = "已复制"; }, (err) => {
+    console.warn("clipboard refused", err);
+    const box = el("textarea", { readOnly: true, style: "width:100%;min-height:140px;font-size:13px", value: txt });
+    btn.parentElement.after(box); box.focus(); box.select();
+    btn.textContent = "已选中，请手动复制";
+  });
+}
+
+/* ---------- storage, all private per coach under data/users/<id>:
+   <tid>            thread doc {kind:"thread", title, createdAt, updatedAt}; "chat" is the original single chat
+   <tid>/msgs/*     that thread's messages
+   h_<tid>_<msgId>  {kind:"held", ts, tid, plan}: held sessions across all threads, feeds the no-repeat rule ---------- */
+const userCol = () => state.db.collection(`data/users/${state.uid}`);
+const msgsRef = (tid = state.tid) => state.db.collection(`data/users/${state.uid}/${tid}/msgs`);
+const byNewest = (k) => (a, b) => (String(a[k]) < String(b[k]) ? 1 : -1);
+async function loadThreads() {
+  const snap = await userCol().where("kind", "==", "thread").get();
+  state.threads = snap.docs.map((d) => ({ id: d.id, ...editable(d.data()) }));
+  if (!state.threads.some((t) => t.id === "chat")) { // the chat from before threads existed: give it a thread doc, keep every message
+    const first = await msgsRef("chat").orderBy("ts", "asc").limit(1).get();
+    if (!first.empty) {
+      const last = await msgsRef("chat").orderBy("ts", "desc").limit(1).get();
+      const f = first.docs[0].data();
+      const meta = { kind: "thread", title: String(f.text || "之前的对话").slice(0, 24), createdAt: f.ts || new Date().toISOString(), updatedAt: last.docs[0].data().ts || f.ts || new Date().toISOString() };
+      await userCol().doc("chat").set(meta);
+      state.threads.push({ id: "chat", ...meta });
+    }
+  }
+  state.threads.sort(byNewest("updatedAt"));
+  renderSide();
+}
+async function loadHeld() {
+  const snap = await userCol().where("kind", "==", "held").get();
+  state.held = recentHeld(snap.docs.map((d) => editable(d.data())), RECENT_N);
+}
+function renderLibBtn() {
+  const n = [...state.lib.values()].filter((x) => x.rating === "up").length;
+  $("open-lib").textContent = n ? `练习库 · 👍 ${n}` : "练习库";
+}
+function openLib() {
+  const dlg = $("lib-dlg");
+  const item = (x) => {
+    const key = libKey(x.name);
+    const blocked = x.phase === "aktivierung" && drillNames(state.held, "aktivierung").map(norm).includes(norm(x.name)); // the no-repeat rule would reject it
+    const use = el("button", { type: "button", disabled: blocked }, blocked ? `最近${RECENT_N}节上过，之后再排` : "排进下节课");
+    use.addEventListener("click", () => { dlg.close(); if (isPhone()) toggleSide(false); $("text").value = `下节课用上「${x.name}」`; autoGrow(); $("text").focus(); });
+    const rm = el("button", { type: "button" }, x.rating === "up" ? "移出练习库" : "恢复（不再排除）");
+    rm.addEventListener("click", async () => {
+      rm.disabled = true;
+      try { await userCol().doc(key).delete(); state.lib.delete(key); paint(); renderLibBtn(); state.gen++; renderLog(); }
+      catch (e) { console.error("library delete failed", e); rm.disabled = false; rm.textContent = `没删掉（${e && e.code}）`; }
+    });
+    return el("li", {}, el("div", { className: "lib-name" }, x.name),
+      x.drill && x.drill.regeln ? el("div", { className: "lib-rules" }, x.drill.regeln) : null,
+      el("div", { className: "lib-acts" }, x.rating === "up" ? use : null, rm));
+  };
+  const paint = () => {
+    const { liked, disliked } = libGroups([...state.lib.values()]);
+    const empty = !state.db ? "登录 claude.ai 后才有练习库。"
+      : !liked.length && !disliked.length ? "还没有评价过的练习。上完课点「标记已上课」，再给每个练习点 👍 或 👎，就会出现在这里。" : "";
+    dlg.replaceChildren(...[
+      el("div", { className: "lib-head" }, el("h2", {}, "练习库"), el("button", { type: "button", className: "run-x", "aria-label": "关闭练习库", onclick: () => dlg.close() }, "✕")),
+      empty ? el("p", { className: "lib-empty" }, empty) : null,
+      liked.map((g) => el("section", {}, el("h3", { style: `color:${phaseMeta(g.phase).color}` }, `${phaseMeta(g.phase).name} · 👍`), el("ul", {}, g.items.map(item)))),
+      disliked.length ? el("section", {}, el("h3", {}, "👎 不再排的"), el("ul", {}, disliked.map(item))) : null].flat().filter(Boolean));
+  };
+  paint();
+  dlg.showModal();
+}
+async function loadLib() {
+  const snap = await userCol().where("kind", "==", "lib").get();
+  state.lib = new Map(snap.docs.map((d) => [d.id, editable(d.data())]));
+  renderLibBtn();
+}
+/** Creates the thread for a new chat. Switches the view to it only if the coach has not navigated away meanwhile. */
+async function ensureThread(firstText, signal) {
+  if (state.tid || !state.db) return state.tid;
+  const now = new Date().toISOString();
+  const tid = "t_" + Date.now().toString(36);
+  const meta = { kind: "thread", title: firstText.replace(/\s+/g, " ").slice(0, 24), createdAt: now, updatedAt: now };
+  await userCol().doc(tid).set(meta);
+  state.threads.unshift({ id: tid, ...meta });
+  if (!(signal && signal.aborted)) { state.tid = tid; rememberThread(); renderTitle(); }
+  renderSide();
+  return tid;
+}
+async function touchThread(tid = state.tid) {
+  const t = state.threads.find((x) => x.id === tid);
+  if (!t || !state.db) return;
+  t.updatedAt = new Date().toISOString();
+  try { await userCol().doc(t.id).update({ updatedAt: t.updatedAt }); }
+  catch (e) { console.error("thread time not saved", e); }
+  state.threads.sort(byNewest("updatedAt")); renderSide();
+}
+function rememberThread() { try { localStorage.setItem("u12-thread", state.tid || ""); } catch (e) { console.warn("thread not remembered", e); } }
+const isPhone = () => window.matchMedia("(max-width: 899px)").matches;
+function toggleSide(force) {
+  if (isPhone()) { document.body.classList.toggle("side-open", force); return; }
+  const closed = document.body.classList.toggle("side-closed", force === undefined ? undefined : !force);
+  try { localStorage.setItem("u12-side", closed ? "closed" : "open"); } catch (e) { console.warn("side state not stored", e); }
+}
+function renderTitle() {
+  const t = state.threads.find((x) => x.id === state.tid);
+  $("title").textContent = t ? t.title : "新对话";
+}
+function renderSide() {
+  const list = state.threads.map((t) => {
+    const b = el("button", { type: "button", className: t.id === state.tid ? "active" : "" },
+      el("span", {}, t.title || "未命名"), el("small", {}, dayLabel(t.updatedAt)));
+    b.addEventListener("click", () => openThread(t.id));
+    return b;
+  });
+  $("threads").replaceChildren(...(list.length ? list : [el("small", { style: "color:var(--muted);padding:8px 10px" }, state.db ? "还没有对话。发第一条消息就会出现在这里。" : "登录 claude.ai 后才会保存对话。")]));
+}
+async function openThread(tid) {
+  if (tid && tid === state.tid) { if (isPhone()) toggleSide(false); return; } // re-tapping the open chat must not cancel a reply
+  if (state.ctl) { state.ctl.abort(); state.ctl = null; $("send").textContent = "发送"; }
+  state.tid = tid; state.msgs = []; setReplyTo(null);
+  rememberThread(); renderSide(); renderTitle(); renderLog(); renderQuick();
+  if (isPhone()) toggleSide(false);
+  if (tid) await loadMsgs();
+}
+async function persist(m, tid = state.tid) {
+  if (!state.db || !tid) return;
+  const { id, typing, ...data } = m;
+  try { const ref = await msgsRef(tid).add(data); m.id = ref.id; }
+  catch (e) { console.error("message not saved", e); if (tid === state.tid) notice(`这条消息没存上（${e && e.code}），刷新后会消失。`); }
+}
+/** Message flag and held doc change together; if the second write fails the first is undone, so the no-repeat list stays right. */
+async function toggleHeld(m, btn) {
+  const tid = m.tid || state.tid;
+  const want = !m.held;
+  const hid = `h_${tid}_${m.id}`;
+  btn.disabled = true;
+  try {
+    await msgsRef(tid).doc(m.id).update({ held: want });
+    try {
+      if (want) await userCol().doc(hid).set({ kind: "held", ts: m.ts, heldAt: new Date().toISOString(), tid, plan: JSON.parse(planJson(m.plan)) });
+      else await userCol().doc(hid).delete();
+    } catch (e) {
+      try { await msgsRef(tid).doc(m.id).update({ held: !want }); }
+      catch (e2) { console.error("held rollback failed", e2); notice(`「已上课」记录不完整（${e2 && e2.code}），刷新后再点一次。`); }
+      throw e;
+    }
+  } catch (e) {
+    console.error("held toggle failed", e);
+    btn.disabled = false;
+    btn.textContent = `记录失败（${e && e.code}）`;
+    return;
+  }
+  m.held = want;
+  try { await loadHeld(); }
+  catch (e) { console.error("held list not refreshed", e); notice(`已记录，但避免重复的列表没刷新（${e && e.code}），刷新页面即可。`); }
+  if (tid === state.tid) renderLog();
+}
+async function loadMsgs() {
+  const tid = state.tid;
+  state.loading = tid;
+  const timer = setTimeout(() => { if (tid === state.tid) notice("聊天记录加载超时，刷新页面再试。"); }, 10000);
+  try {
+    // ponytail: loads the newest 200 messages of the thread; paginate if one thread grows past that
+    const snap = await msgsRef(tid).orderBy("ts", "desc").limit(200).get();
+    clearTimeout(timer);
+    if (tid !== state.tid) return; // coach switched threads meanwhile
+    state.msgs = snap.docs.map((d) => { const m = { id: d.id, ...editable(d.data()), tid }; if (m.plan) m.plan = cleanPlan(m.plan); return m; }).reverse(); // tid in memory: later writes never guess the thread
+    renderLog(); renderQuick();
+  } catch (e) {
+    clearTimeout(timer);
+    console.error("history failed", e);
+    if (tid === state.tid) notice(`聊天记录加载失败（${e && e.code}）。可以继续用，但不会避开重复练习。`);
+  } finally {
+    if (state.loading === tid) state.loading = null;
+  }
+}
+function notice(text) { state.msgs.push({ role: "agent", ts: new Date().toISOString(), text, error: true }); renderLog(); }
+
+/* ---------- send ---------- */
+async function send(ev) {
+  if (ev) ev.preventDefault();
+  const text = $("text").value.trim();
+  if (!text || !state.sample || !state.ready || state.ctl) return;
+  if (state.loading) { notice("聊天记录还在加载，稍等再发。"); return; }
+  const input = readInput();
+  const bad = inputProblems(input);
+  if (bad.length) { notice("上课条件有问题：" + bad.join("；") + "。点左下角 + 修改。"); return; }
+  const ctl = (state.ctl = new AbortController()); // busy from here: a second send waits, a thread switch cancels
+  $("send").textContent = "停止"; $("send").disabled = false;
+  const base = state.replyTo ? state.replyTo.plan : ([...state.msgs].reverse().find((m) => m.plan) || {}).plan || null;
+  const coachMsg = { role: "coach", ts: new Date().toISOString(), text, quote: state.replyTo ? state.replyTo.id : undefined };
+  if (!coachMsg.quote) delete coachMsg.quote;
+  $("text").value = ""; autoGrow(); setReplyTo(null);
+  state.msgs.push(coachMsg);
+  let tid = state.tid;
+  try { tid = await ensureThread(text, ctl.signal); }
+  catch (e) { console.error("thread not created", e); notice(`对话没能保存（${e && e.code}），这次聊天刷新后会丢失。`); }
+  if (tid) coachMsg.tid = tid;
+  persist(coachMsg, tid);
+  const here = () => state.tid === tid;
+  const typing = { role: "agent", text: "对方正在输入…", typing: true };
+  const showTyping = (t) => { typing.text = t; const b = $("log").querySelector(".msg:last-child .bubble.typing"); if (b) b.textContent = t; else if (here()) renderLog([typing]); };
+  try {
+    if (ctl.signal.aborted) throw { code: "cancelled" };
+    renderLog([typing]);
+    const recent = state.held;
+    const lib = [...state.lib.values()];
+    const disliked = lib.filter((x) => x.rating === "down").map((x) => x.name);
+    const history = state.msgs.filter((x) => x !== coachMsg);
+    let res = editable(await state.sample.json(chatPrompt(input, history, base, recent, text, lib), {
+      signal: ctl.signal, cache: false,
+      onText: ({ text: t }) => showTyping(`对方正在输入…（${t.length}字）`),
+    }));
+    let plan = res && res.plan ? cleanPlan(res.plan) : null;
+    let problems = plan ? validatePlan(plan, input, recent, disliked) : [];
+    let reply = (res && typeof res.reply === "string" && res.reply.trim()) || (plan ? "计划好了。" : "（没有收到回答）");
+    if (problems.length) {
+      showTyping(`检查发现 ${problems.length} 处问题，正在修正…`);
+      const fixed = editable(await state.sample.json(repairPrompt(input, plan, problems, recent, lib), { signal: ctl.signal, cache: false }));
+      if (fixed && fixed.plan) { plan = cleanPlan(fixed.plan); problems = validatePlan(plan, input, recent, disliked); if (fixed.reply) reply += "\n" + fixed.reply; }
+    }
+    const agentMsg = { role: "agent", ts: new Date().toISOString(), text: reply };
+    if (plan) { carryDetails(plan, base); reuseDetails(plan, lib); Object.assign(agentMsg, { plan, problems, input, held: false }); }
+    if (tid) agentMsg.tid = tid;
+    if (here()) { state.msgs.push(agentMsg); renderLog([]); }
+    await persist(agentMsg, tid);
+    await touchThread(tid);
+    if (here()) { renderLog([]); renderQuick(); }
+    if (plan) drawAll(agentMsg);
+  } catch (e) {
+    if (e && e.code === "cancelled") { if (here()) renderLog(); }
+    else {
+      console.error("send failed", e);
+      if (here()) notice(`出错了：${ERR_COPY[e && e.code] || "请求失败"}（代码：${e && e.code}${e && e.message ? "，" + e.message : ""}）`);
+    }
+  } finally {
+    if (state.ctl === ctl) { state.ctl = null; $("send").textContent = "发送"; }
+  }
+}
+const ERR_COPY = {
+  not_granted: "这个页面还没被允许使用 Claude，请在页面的权限菜单里允许",
+  sampling_disabled: "这个账号不能使用 Claude",
+  rate_limited: "用量到上限了，稍后再试",
+  invalid_json: "回答格式不对，再发一次",
+  prompt_too_large: "内容太长，删掉一些聊天或换个短点的说法",
+  upstream_error: "Claude 暂时连不上，再发一次",
+};
+function autoGrow() { const t = $("text"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 120) + "px"; }
+
+/* ---------- boot ---------- */
+async function start() {
+  loadSettings(); renderSettingsPill(); renderLog(); renderQuick();
+  $("composer").addEventListener("submit", (ev) => { ev.preventDefault(); if (state.ctl) state.ctl.abort(); else send(); });
+  $("text").addEventListener("input", autoGrow);
+  $("replying-x").addEventListener("click", () => setReplyTo(null));
+  const open = () => { $("sheet").hidden = false; $("f-dauer").focus(); };
+  const close = () => { $("sheet").hidden = true; saveSettings(); renderSettingsPill(); };
+  $("open-sheet").addEventListener("click", open);
+  $("settings-pill").addEventListener("click", open);
+  $("close-sheet").addEventListener("click", close);
+  $("sheet").addEventListener("click", (e) => { if (e.target === $("sheet")) close(); });
+  $("send").disabled = true;
+  try { if (localStorage.getItem("u12-side") === "closed") document.body.classList.add("side-closed"); }
+  catch (e) { console.warn("side state not restored", e); }
+  $("toggle-side").addEventListener("click", () => toggleSide());
+  $("scrim").addEventListener("click", () => toggleSide(false));
+  $("new-chat").addEventListener("click", () => openThread(null));
+  $("side-new").addEventListener("click", () => openThread(null));
+  $("open-lib").addEventListener("click", openLib);
+  renderSide();
+
+  const [sample, db, user] = await Promise.all([
+    window.claude ? claude.use("sample") : null,
+    window.claude ? claude.use("db") : null,
+    window.claude ? claude.use("user") : null,
+  ]);
+  state.sample = sample;
+  if (!sample) notice("现在不能生成计划：这个页面需要在浏览器里登录 claude.ai 后打开。");
+  const uid = user ? await user.id() : null;
+  if (db && uid) {
+    state.db = db; state.uid = uid;
+    try { await loadThreads(); }
+    catch (e) { console.error("threads failed", e); notice(`历史对话列表加载失败（${e && e.code}）。`); }
+    try { await loadHeld(); }
+    catch (e) { console.error("threads failed", e); notice(`历史对话加载失败（${e && e.code}）。可以继续用，但不会避开重复练习。`); }
+    try { await loadLib(); }
+    catch (e) { console.error("library failed", e); notice(`练习库加载失败（${e && e.code}）。这次排课不会参考👍和👎。`); }
+    let last = null;
+    try { last = localStorage.getItem("u12-thread"); } catch (e) { console.warn("last thread not read", e); }
+    const tid = state.threads.some((t) => t.id === last) ? last : (state.threads[0] || {}).id || null;
+    await openThread(tid);
+  }
+  else notice("聊天记录不会保存：需要登录 claude.ai。");
+  state.ready = true;
+  $("send").disabled = !sample;
+}
+start().catch((e) => { console.error("boot failed", e); notice("页面启动失败：" + (e && e.message)); });
+</script>

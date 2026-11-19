@@ -1,0 +1,17 @@
+{
+  "name": "u12-planner",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.ts\" && node tests/spike/all.cjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "npm run typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}

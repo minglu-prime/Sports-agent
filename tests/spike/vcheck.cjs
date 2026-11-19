@@ -1,0 +1,13 @@
+const fs=require('fs');const src=fs.readFileSync(process.argv[2],'utf8');
+const code=src.slice(src.indexOf('const PHASES'),src.indexOf('/* ---------- prompts'));
+const {validatePlan}=new Function('document',code.replace('const state','var state')+';return {validatePlan}')({getElementById(){}});
+const d=(n,m)=>({name:n,minuten:m,ziele:['反应'],aufbau:'a',regeln:'r',wettkampf:'w',coachingCue:'c',leichter:'l',schwerer:'s'});
+const good={phasen:[['aufwaermen',[d('冰火人',12)]],['mobilisation',[d('动物走',10)]],['aktivierung',[d('头胸球',8)]],['technik',[d('2打1',35)]],['spiel',[d('比赛',25)]]].map(([id,u])=>({id,minuten:u.reduce((a,x)=>a+x.minuten,0),uebungen:u}))};
+const inp={dauer:90,spielMin:20,kalt:true};
+const a=validatePlan(good,inp,[]);if(a.length)throw a;
+const msgs=[{held:true,plan:good,ts:'2026-11-10'},{held:false,plan:{phasen:[]},ts:'2026-11-11'}];
+const r=validatePlan(good,inp,[good]);if(!(r.length===1&&r[0].includes('头胸球')))throw r;
+const bad=JSON.parse(JSON.stringify(good));bad.phasen[4].uebungen[0].minuten=15;bad.phasen[4].minuten=15;bad.phasen[0].uebungen[0].minuten=8;bad.phasen[0].minuten=8;
+const b=validatePlan(bad,inp,[]);if(!(b.some(x=>x.includes('总时长'))&&b.some(x=>x.includes('比赛只有'))&&b.some(x=>x.includes('天冷'))))throw b;
+if(validatePlan({},inp,[]).length!==1)throw 'malformed';
+console.log('ok',b);
