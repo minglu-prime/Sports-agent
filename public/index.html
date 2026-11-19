@@ -1,5 +1,13 @@
-<title>U12 Trainingsplaner</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<!doctype html>
+<html lang="zh">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>U12 备课助手</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#EDEDED">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="U12备课">
 <style>
 /* Layout: a familiar phone chat. Fixed top bar, scrolling messages, fixed composer. Plans arrive as cards inside the assistant's bubbles. */
 :root {
@@ -228,6 +236,7 @@ label input, label select { font: 400 16px var(--f-body); color: var(--ink); bac
   </div>
 </div>
 
+<script src="runtime.js"></script>
 <script>
 "use strict";
 const PHASES = [
@@ -512,7 +521,7 @@ function planCard(m) {
   quote.addEventListener("click", () => setReplyTo(m));
   const held = el("button", { type: "button", className: m.held ? "on" : "" }, m.held ? "✓ 已上课" : "标记已上课");
   held.disabled = !state.db || !m.id;
-  if (held.disabled) held.title = state.db ? "这条消息没保存成功，不能标记" : "登录 claude.ai 后才能记录";
+  if (held.disabled) held.title = state.db ? "这条消息没保存成功，不能标记" : "请先登录";
   held.addEventListener("click", () => toggleHeld(m, held));
   const copy = el("button", { type: "button" }, "复制文字");
   copy.addEventListener("click", () => copyText(planAsText(plan, m.input), copy));
@@ -989,7 +998,7 @@ function openLib() {
   };
   const paint = () => {
     const { liked, disliked } = libGroups([...state.lib.values()]);
-    const empty = !state.db ? "登录 claude.ai 后才有练习库。"
+    const empty = !state.db ? "请先登录。"
       : !liked.length && !disliked.length ? "还没有评价过的练习。上完课点「标记已上课」，再给每个练习点 👍 或 👎，就会出现在这里。" : "";
     dlg.replaceChildren(...[
       el("div", { className: "lib-head" }, el("h2", {}, "练习库"), el("button", { type: "button", className: "run-x", "aria-label": "关闭练习库", onclick: () => dlg.close() }, "✕")),
@@ -1043,7 +1052,7 @@ function renderSide() {
     b.addEventListener("click", () => openThread(t.id));
     return b;
   });
-  $("threads").replaceChildren(...(list.length ? list : [el("small", { style: "color:var(--muted);padding:8px 10px" }, state.db ? "还没有对话。发第一条消息就会出现在这里。" : "登录 claude.ai 后才会保存对话。")]));
+  $("threads").replaceChildren(...(list.length ? list : [el("small", { style: "color:var(--muted);padding:8px 10px" }, state.db ? "还没有对话。发第一条消息就会出现在这里。" : "请先登录。")]));
 }
 async function openThread(tid) {
   if (tid && tid === state.tid) { if (isPhone()) toggleSide(false); return; } // re-tapping the open chat must not cancel a reply
@@ -1169,12 +1178,12 @@ async function send(ev) {
   }
 }
 const ERR_COPY = {
-  not_granted: "这个页面还没被允许使用 Claude，请在页面的权限菜单里允许",
-  sampling_disabled: "这个账号不能使用 Claude",
+  not_granted: "登录已过期，请重新登录",
+  sampling_disabled: "这个账号不能生成计划",
   rate_limited: "用量到上限了，稍后再试",
   invalid_json: "回答格式不对，再发一次",
   prompt_too_large: "内容太长，删掉一些聊天或换个短点的说法",
-  upstream_error: "Claude 暂时连不上，再发一次",
+  upstream_error: "生成服务暂时连不上，再发一次",
 };
 function autoGrow() { const t = $("text"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 120) + "px"; }
 
@@ -1206,7 +1215,7 @@ async function start() {
     window.claude ? claude.use("user") : null,
   ]);
   state.sample = sample;
-  if (!sample) notice("现在不能生成计划：这个页面需要在浏览器里登录 claude.ai 后打开。");
+  if (!sample) notice("现在不能生成计划：请先登录。");
   const uid = user ? await user.id() : null;
   if (db && uid) {
     state.db = db; state.uid = uid;
@@ -1221,7 +1230,7 @@ async function start() {
     const tid = state.threads.some((t) => t.id === last) ? last : (state.threads[0] || {}).id || null;
     await openThread(tid);
   }
-  else notice("聊天记录不会保存：需要登录 claude.ai。");
+  else notice("聊天记录不会保存：请先登录。");
   state.ready = true;
   $("send").disabled = !sample;
 }

@@ -8,7 +8,15 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "rewriteRelativeImportExtensions": true
   },
-  "include": ["api", "lib", "tests", "scripts"]
+  "include": [
+    "api",
+    "lib",
+    "tests",
+    "scripts"
+  ]
 }
