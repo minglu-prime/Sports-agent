@@ -35,3 +35,11 @@ test("sign-in code input takes 6 to 10 digits", () => {
   assert.match(rt, /pattern: "\[0-9\]\{6,10\}", maxLength: 10/);
   assert.doesNotMatch(rt, /6 位/);
 });
+
+// Live finding: #sheet has display:flex, which beats the hidden attribute, so the settings sheet covered the chat on load.
+// The Artifact host and the old harness both added this rule; the page must carry it itself.
+test("the hidden attribute always hides, and the harness no longer adds that rule for the page", () => {
+  assert.match(html, /\[hidden\] \{ display: none !important; \}/);
+  const build = readFileSync(new URL("./harness/build.cjs", import.meta.url), "utf8");
+  assert.doesNotMatch(build, /\[hidden\]/);
+});
