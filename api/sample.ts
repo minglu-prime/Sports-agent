@@ -18,6 +18,7 @@ export async function POST(req: Request): Promise<Response> {
   return handleSample(req, {
     model,
     effort: process.env.DEEPSEEK_REASONING_EFFORT || "high",
+    lightEffort: process.env.DEEPSEEK_PICTURE_EFFORT || "none",
     capEuro: Number(process.env.DAILY_EURO_CAP || 3),
     userId: async (token) => {
       const { data, error } = await anon.auth.getUser(token);

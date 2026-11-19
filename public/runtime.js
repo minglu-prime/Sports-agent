@@ -92,7 +92,8 @@
           res = await fetchFn("/api/sample", {
             method: "POST",
             headers: { "content-type": "application/json", authorization: `Bearer ${await getToken()}` },
-            body: JSON.stringify({ prompt }),
+            // court-picture prompts are simple placement tasks: the server answers them without the slow thinking mode
+            body: JSON.stringify(prompt.includes("示意图规则") ? { prompt, light: true } : { prompt }),
             signal: opts.signal,
           });
         } catch (e) {
@@ -163,7 +164,6 @@
 
   function signIn(client) {
     return new Promise((resolve) => {
-      document.head.append(h("style", { textContent: css }));
       const msg = h("p", { className: "auth-msg", role: "status" });
       const say = (text, isErr) => { msg.textContent = text; msg.className = "auth-msg" + (isErr ? " err" : ""); };
       const card = h("div", { className: "auth-card" });
@@ -226,6 +226,7 @@
 
   let booted = null;
   const boot = () => booted || (booted = (async () => {
+    document.head.append(h("style", { textContent: css }));
     const res = await fetch("/api/config");
     const cfg = await res.json().catch((e) => ({ message: `配置读取失败（${e.message}）` }));
     if (!res.ok || !cfg.supabaseUrl) throw new Error(cfg.message || `配置读取失败（${res.status}）`);

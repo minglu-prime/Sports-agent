@@ -114,3 +114,17 @@ test("login service failure → 503 upstream_error, not 401", async () => {
   assert.deepEqual(await r.json(), { code: "upstream_error", message: "登录服务暂时连不上，稍后再试" });
   assert.equal(seen.deepseekCalls, 0);
 });
+
+// Go-live finding: with thinking on, each court picture took ~25 s (9 pictures ≈ 4 min). Pictures use the light effort.
+test("a light request runs with the light effort; a normal one keeps the configured effort", async () => {
+  const bodies: Record<string, unknown>[] = [];
+  const mk = () => {
+    const { d } = deps();
+    const create = d.deepseek.chat.completions.create.bind(d.deepseek.chat.completions) as (b: unknown, o?: unknown) => Promise<unknown>;
+    (d.deepseek.chat.completions as unknown as { create: unknown }).create = async (b: Record<string, unknown>, o?: unknown) => { bodies.push(b); return create(b, o); };
+    return { ...d, lightEffort: "none" };
+  };
+  await (await handleSample(req({ prompt: "x", light: true }), mk())).text();
+  await (await handleSample(req({ prompt: "x" }), mk())).text();
+  assert.deepEqual(bodies.map((b) => [b.reasoning_effort, (b.thinking as { type: string }).type]), [["none", "disabled"], ["high", "enabled"]]);
+});
