@@ -183,12 +183,12 @@
           if (error) { console.warn("otp send failed", error); say(authMessage(error), true); return; }
           showCode();
         });
-        card.replaceChildren(h("h1", { textContent: "U12 备课助手" }), h("p", { textContent: "输入你被邀请的邮箱，我们会发一个 6 位验证码。" }), form, msg,
+        card.replaceChildren(h("h1", { textContent: "U12 备课助手" }), h("p", { textContent: "输入你被邀请的邮箱，我们会发一个数字验证码。" }), form, msg,
           h("p", { className: "auth-note", textContent: "计划由 DeepSeek 生成（服务器在中国），请不要输入孩子的全名。" }));
         input.focus();
       };
       const showCode = () => {
-        const input = h("input", { type: "text", inputMode: "numeric", autocomplete: "one-time-code", pattern: "[0-9]{6}", maxLength: 6, required: true, placeholder: "123456" });
+        const input = h("input", { type: "text", inputMode: "numeric", autocomplete: "one-time-code", pattern: "[0-9]{6,10}", maxLength: 10, required: true, placeholder: "邮件里的数字" });
         const btn = h("button", { type: "submit", textContent: "登录" });
         const back = h("button", { type: "button", className: "link", textContent: "换个邮箱 / 重新发送" });
         back.addEventListener("click", () => { say(""); showEmail(); });
