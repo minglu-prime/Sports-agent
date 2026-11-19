@@ -610,11 +610,12 @@ function layoutDiagram(d) {
     problems.push(`${what}的位置「${Array.isArray(v) ? v.join(",") : v}」看不懂`);
     return null;
   };
-  const pos = {}, els = [];
+  const pos = {}, spot = {}, els = []; // spot: where a player nominally stands, before markers sharing a place are fanned out
   (Array.isArray(d && d.elemente) ? d.elemente : []).forEach((e, i) => {
     if (!e || !MARK[e.typ]) { problems.push(`第 ${i + 1} 个元素类型不对`); return; }
     const p = resolve(e.ort !== undefined ? e.ort : [e.x, e.y], e.id || MARK[e.typ]);
     if (!p) return;
+    if (e.id) spot[e.id] = p.slice();
     // ponytail: players sharing a spot (a queue) are fanned out sideways so both stay visible; fine for ≤ 8 markers
     const ry = (full ? 280 : 140) / 150; // y percent → x-percent units, so spacing is measured as drawn
     for (let k = 0; k < 8 && els.some((o) => Math.hypot(o.x - p[0], (o.y - p[1]) * ry) < 8.5); k++) p[0] += p[0] > 78 ? -9 : 9;
@@ -634,8 +635,11 @@ function layoutDiagram(d) {
       else if (typeof a.nach === "string" && pos[a.nach]) { to = pos[a.nach].slice(); toPlayer = true; }
       else to = resolve(a.nach, `动作 ${nr}（${a.wer}）`);
       if (!to) return;
+      const moves = a.typ === "lauf" || a.typ === "dribbling";
+      // "runs to the spot they already stand on" is the model's way of saying the player stays: nothing to draw, nothing wrong
+      if (moves && !toPlayer && spot[a.wer] && Math.hypot(to[0] - spot[a.wer][0], to[1] - spot[a.wer][1]) < 0.5) return;
       arrows.push({ typ: a.typ, from: from.slice(), to, nr, toPlayer });
-      if (a.typ === "lauf" || a.typ === "dribbling") pos[a.wer] = to.slice();
+      if (moves) { pos[a.wer] = to.slice(); spot[a.wer] = to.slice(); }
     });
   return { full, els, arrows, problems };
 }
