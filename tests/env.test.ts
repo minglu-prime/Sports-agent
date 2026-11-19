@@ -19,3 +19,11 @@ test("missing value names every accepted variable", () => {
   assert.equal(r.ok, false);
   assert.equal(!r.ok && r.missing, "SUPABASE_ANON_KEY / SUPABASE_PUBLISHABLE_KEY / NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY / NEXT_PUBLIC_SUPABASE_ANON_KEY");
 });
+
+// Go-live finding: the dashboard's "Data API" page shows https://<ref>.supabase.co/rest/v1/ and that got pasted as the URL.
+test("a pasted REST endpoint is reduced to the project URL", () => {
+  const r = pickEnv(SUPABASE_ENV, { SUPABASE_URL: "https://abc.supabase.co/rest/v1/", SUPABASE_ANON_KEY: "a", SUPABASE_SECRET_KEY: "s" });
+  assert.equal(r.ok && r.env.url, "https://abc.supabase.co");
+  const plain = pickEnv(SUPABASE_ENV, { SUPABASE_URL: "https://abc.supabase.co", SUPABASE_ANON_KEY: "a", SUPABASE_SECRET_KEY: "s" });
+  assert.equal(plain.ok && plain.env.url, "https://abc.supabase.co");
+});
