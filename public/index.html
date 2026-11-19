@@ -329,6 +329,27 @@ function normalizeDetail(dt) {
   return { detail, problem };
 }
 /** A drill needs a (new) picture when it has none or the saved one has no usable court diagram. */
+/* Court spots are Chinese ids for the drawing code. In English or German step text they are replaced by these names. */
+const SPOT_NAMES = {
+  "篮下": ["under the basket", "unter dem Korb"], "左低位": ["left low post", "linker Low-Post"], "右低位": ["right low post", "rechter Low-Post"],
+  "罚球线": ["free-throw line", "Freiwurflinie"], "左肘区": ["left elbow", "linker Ellbogen"], "右肘区": ["right elbow", "rechter Ellbogen"],
+  "左底角": ["left corner", "linke Ecke"], "右底角": ["right corner", "rechte Ecke"], "左侧翼": ["left wing", "linker Flügel"], "右侧翼": ["right wing", "rechter Flügel"],
+  "左45度": ["left 45", "links 45°"], "右45度": ["right 45", "rechts 45°"], "弧顶": ["top of the key", "Top"],
+  "左边线": ["left sideline", "linke Seitenlinie"], "右边线": ["right sideline", "rechte Seitenlinie"],
+  "中线中点": ["centre of the half-court line", "Mitte der Mittellinie"], "左中线": ["half-court line, left", "Mittellinie links"], "右中线": ["half-court line, right", "Mittellinie rechts"],
+  "中圈": ["centre circle", "Mittelkreis"],
+};
+/** For English ("en") or German ("de") output: takes the Chinese spot ids out of the step and mistake texts. The diagram keeps them. */
+function localizeSpots(detail, sprache) {
+  const col = sprache === "en" ? 0 : sprache === "de" ? 1 : -1;
+  if (!detail || col < 0) return detail;
+  const ids = Object.keys(SPOT_NAMES).sort((a, b) => b.length - a.length).join("|");
+  const doubled = new RegExp(`\\s*[（(]\\s*(?:前场|后场)?(?:${ids})\\s*[）)]`, "g"); // "the top (弧顶)": the name is already there
+  const bare = new RegExp(`(前场|后场)?(${ids})`, "g");
+  const back = ["backcourt ", "Rückfeld "][col];
+  const fix = (t) => String(t).replace(doubled, "").replace(bare, (_, half, id) => (half === "后场" ? back : "") + SPOT_NAMES[id][col]);
+  return { ...detail, schritte: (detail.schritte || []).map(fix), fehler: (detail.fehler || []).map(fix) };
+}
 const needsPicture = (u) => !u.detail || !!normalizeDetail(u.detail).problem;
 /** The model may answer with null or junk entries; the page renders objects only. Structure problems stay for the validator. */
 function cleanPlan(plan) {
@@ -855,7 +876,8 @@ async function loadDetail(m, pi, ui, u) {
   let err = "";
   try {
     const dt = editable(await state.sample.json(detailPrompt(m.input, m.plan.phasen[pi].id, u), { cache: false }));
-    const { detail, problem } = normalizeDetail(dt);
+    const { detail: raw, problem } = normalizeDetail(dt);
+    const detail = localizeSpots(raw, m.input && m.input.sprache);
     if (!detail || problem) throw { code: "invalid_json", message: problem || "回答不是有效的图解格式" };
     u.detail = detail; // JSON round-tripped: drops undefined fields, which the database refuses
     if (state.db && m.id) {

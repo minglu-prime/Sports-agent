@@ -27,3 +27,20 @@ for (const sprache of ["en", "de"]) {
 }
 ok(!detailPrompt(base, "technik", { name: "x" }).includes("中文地点名只写在"), "Chinese prompt unchanged");
 console.log("en steps ok");
+
+// The prompt alone was not enough: one of four live pictures still had "the top (弧顶)". Code now cleans the step text.
+const { localizeSpots } = new Function("document", pure.replace("const state", "var state") + ";return {localizeSpots}")({ getElementById() {} });
+const det = () => ({ schritte: ["Offence starts at the top (弧顶) and right wing（右侧翼）.", "A2 cuts to 后场罚球线, then 前场左底角."], fehler: ["Standing at 弧顶 → move"], diagramm: { feld: "halb", elemente: [{ id: "A1", typ: "spieler", ort: "弧顶" }], aktionen: [] } });
+const e = localizeSpots(det(), "en");
+ok(e.schritte[0] === "Offence starts at the top and right wing.", "doubled names lose the Chinese id: " + e.schritte[0]);
+ok(e.schritte[1] === "A2 cuts to backcourt free-throw line, then left corner.", "bare ids are translated: " + e.schritte[1]);
+ok(e.fehler[0] === "Standing at top of the key → move", e.fehler[0]);
+ok(e.diagramm.elemente[0].ort === "弧顶", "the diagram keeps its ids");
+const g = localizeSpots(det(), "de");
+ok(g.schritte[1].includes("Freiwurflinie") && g.schritte[1].includes("linke Ecke") && !/[\u4e00-\u9fff]/.test(g.schritte.join("")), "German names: " + g.schritte[1]);
+ok(JSON.stringify(localizeSpots(det(), "zh")) === JSON.stringify(det()), "Chinese output is left alone");
+ok(localizeSpots(null, "en") === null, "no detail");
+const spotIds = src.slice(src.indexOf("const HALF_SPOTS"), src.indexOf("const finite01")).match(/"([^"]+)": \[/g).map((x) => x.slice(1, -4));
+const probe = localizeSpots({ schritte: spotIds.concat("中圈"), fehler: [] }, "en").schritte.concat(localizeSpots({ schritte: spotIds.concat("中圈"), fehler: [] }, "de").schritte);
+ok(spotIds.length === 18 && !probe.some((x) => /[\u4e00-\u9fff]/.test(x)), "every court spot has an English and a German name: " + probe.filter((x) => /[\u4e00-\u9fff]/.test(x)));
+console.log("spots ok");
