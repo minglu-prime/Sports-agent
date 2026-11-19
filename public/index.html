@@ -556,9 +556,12 @@ const HALF_SPOTS = {
 const finite01 = (v) => typeof v === "number" && isFinite(v) && v >= 0 && v <= 100;
 /** Full court: the attacking half is on top (same names), the other half gets the prefix 后场 and is mirrored below. */
 function courtSpots(full) {
-  if (!full) return HALF_SPOTS;
-  const o = { "中圈": [50, 50] };
-  Object.entries(HALF_SPOTS).forEach(([k, [x, y]]) => { o[k] = [x, y / 2]; o["后场" + k] = [x, 100 - y / 2]; });
+  const o = full ? { "中圈": [50, 50] } : {};
+  // models sometimes write the attacking half explicitly ("前场右底角"): same place as the plain name
+  Object.entries(HALF_SPOTS).forEach(([k, [x, y]]) => {
+    o[k] = o["前场" + k] = full ? [x, y / 2] : [x, y];
+    if (full) o["后场" + k] = [x, 100 - y / 2];
+  });
   return o;
 }
 /**
